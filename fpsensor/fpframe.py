@@ -21,7 +21,7 @@ from .fpapi import FpPID
 @dataclass
 class FpFrame(Frame):
     """Fingerprint frame definition.
-    Bytes:
+    Data:
         0: Header   : 2 byte MSB    : 0   - 1
         1: Address  : 4 byte MSB    : 2   - 5
         2: PID      : 1 byte        : 6
