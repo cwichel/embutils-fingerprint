@@ -1,9 +1,9 @@
 [tool.poetry]
 version = "0.1.0"
-name = "embutils-fingerprint"
+name = "fpsensor"
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/cwichel/embutils-fingerprint"
+homepage = "https://github.com/cwichel/fpsensor"
 description = "Python library for ZhianTec fingerprint sensors"
 authors = ["Christian Wiche <cwichel@gmail.com>"]
 keywords = [
