@@ -172,10 +172,23 @@ class FpPacketCommand(Serialized):
     payload:    bytearray
 
     def serialize(self) -> bytearray:
+        """Convert the object into a byte array.
+
+        Returns:
+            bytearray: Serialized frame.
+        """
         return bytearray([self.command]) + self.payload
 
     @staticmethod
     def deserialize(data: bytearray) -> Union[None, 'FpPacketCommand']:
+        """Parse an object from a byte array.
+
+        Args:
+            data (bytearray): received bytes.
+
+        Returns:
+            FpPacketCommand: Parsed frame.
+        """
         # Check data size
         if len(data) < FpPacketCommand.LENGTH:
             return None
@@ -197,10 +210,23 @@ class FpPacketData(Serialized):
     payload:    bytearray
 
     def serialize(self) -> bytearray:
+        """Convert the object into a byte array.
+
+        Returns:
+            bytearray: Serialized frame.
+        """
         return self.payload
 
     @staticmethod
     def deserialize(data: bytearray) -> Union[None, 'FpPacketData']:
+        """Parse an object from a byte array.
+
+        Args:
+            data (bytearray): received bytes.
+
+        Returns:
+            FpPacketData: Parsed frame.
+        """
         # Check data size
         if len(data) < FpPacketData.LENGTH:
             return None
@@ -221,10 +247,23 @@ class FpPacketAck(Serialized):
     payload:    bytearray
 
     def serialize(self) -> bytearray:
+        """Convert the object into a byte array.
+
+        Returns:
+            bytearray: Serialized frame.
+        """
         return bytearray([self.error]) + self.payload
 
     @staticmethod
     def deserialize(data: bytearray) -> Union[None, 'FpPacketAck']:
+        """Parse an object from a byte array.
+
+        Args:
+            data (bytearray): received bytes.
+
+        Returns:
+            FpPacketAck: Parsed frame.
+        """
         # Check data size
         if len(data) < FpPacketAck.LENGTH:
             return None
@@ -258,6 +297,11 @@ class FpSystemParameters(Serialized):
     baudrate:   FpBaudrate
 
     def serialize(self) -> bytearray:
+        """Convert the object into a byte array.
+
+        Returns:
+            bytearray: Serialized frame.
+        """
         return bytearray(
             self.status.to_bytes(length=2, byteorder='big', signed=False) +
             self.id.to_bytes(length=2, byteorder='big', signed=False) +
@@ -270,6 +314,14 @@ class FpSystemParameters(Serialized):
 
     @staticmethod
     def deserialize(data: bytearray) -> Union[None, 'FpSystemParameters']:
+        """Parse an object from a byte array.
+
+        Args:
+            data (bytearray): received bytes.
+
+        Returns:
+            FpSystemParameters: Parsed frame.
+        """
         # Check data size
         if len(data) < FpSystemParameters.LENGTH:
             return None

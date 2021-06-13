@@ -46,7 +46,7 @@ class FpFrame(Frame):
         Return:
             str: Class representation string.
         """
-        return f'<{self.__class__.__name__}: address=0x{self.address:08X}, pid={self.pid}, packet=0x{self.packet.hex()})>'
+        return f'<{self.__class__.__name__}: address=0x{self.address:08X}, pid={self.pid.__repr__()}, packet=0x{self.packet.hex()}>'
 
     @property
     def checksum(self) -> int:
