@@ -197,7 +197,6 @@ class FpParameterID(IntEnumMod):
     """
     Fingerprint editable parameters.
     """
-    #
     BAUDRATE        = 0x04
     SECURITY        = 0x05
     PACKET_SIZE     = 0x06
@@ -267,13 +266,13 @@ class FpSystemParameters(Serialized):
         :rtype: bytearray
         """
         return bytearray(
-            self.status.to_bytes(length=2, byteorder='big', signed=False) +
-            self.id.to_bytes(length=2, byteorder='big', signed=False) +
-            self.capacity.to_bytes(length=2, byteorder='big', signed=False) +
-            self.security.to_bytes(length=2, byteorder='big', signed=False) +
-            self.address.to_bytes(length=4, byteorder='big', signed=False) +
-            self.packet.to_bytes(length=2, byteorder='big', signed=False) +
-            self.baudrate.to_bytes(length=2, byteorder='big', signed=False)
+            to_bytes(value=self.status, size=2) +
+            to_bytes(value=self.id, size=2) +
+            to_bytes(value=self.capacity, size=2) +
+            to_bytes(value=self.security, size=2) +
+            to_bytes(value=self.address, size=2) +
+            to_bytes(value=self.packet, size=2) +
+            to_bytes(value=self.baudrate, size=2)
             )
 
     @staticmethod
@@ -291,13 +290,13 @@ class FpSystemParameters(Serialized):
             return None
 
         # Parse data
-        _stat   = int.from_bytes(bytes=data[0:2], byteorder='big', signed=False)
-        _id     = int.from_bytes(bytes=data[2:4], byteorder='big', signed=False)
-        _cap    = int.from_bytes(bytes=data[4:6], byteorder='big', signed=False)
-        _sec    = int.from_bytes(bytes=data[6:8], byteorder='big', signed=False)
-        _addr   = int.from_bytes(bytes=data[8:12], byteorder='big', signed=False)
-        _pack   = int.from_bytes(bytes=data[12:14], byteorder='big', signed=False)
-        _baud   = int.from_bytes(bytes=data[14:16], byteorder='big', signed=False)
+        _stat   = from_bytes(data=data[0:2])
+        _id     = from_bytes(data=data[2:4])
+        _cap    = from_bytes(data=data[4:6])
+        _sec    = from_bytes(data=data[6:8])
+        _addr   = from_bytes(data=data[8:12])
+        _pack   = from_bytes(data=data[12:14])
+        _baud   = from_bytes(data=data[14:16])
 
         # Check security
         if not FpSecurity.has_value(value=_sec):
@@ -321,3 +320,29 @@ class FpSystemParameters(Serialized):
             packet=FpPacketSize(_pack),
             baudrate=FpBaudrate(_baud)
             )
+
+
+# Utilities =====================================
+def to_bytes(value: int, size: int) -> bytearray:
+    """
+    Converts an integer value into a bytearray.
+
+    :param int value:   Input value.
+    :param int size:    Number of bytes.
+
+    :return: Value bytes.
+    :rtype: bytearray
+    """
+    return bytearray(value.to_bytes(length=size, byteorder='big', signed=False))
+
+
+def from_bytes(data: bytearray) -> int:
+    """
+    Retrieves an integer value from a bytearray.
+
+    :param bytearray data: Input bytes.
+
+    :return: Value.
+    :rtype: int
+    """
+    return int.from_bytes(bytes=data, byteorder='big', signed=False)

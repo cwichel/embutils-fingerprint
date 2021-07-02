@@ -17,7 +17,7 @@ from embutils.utils import EventHook, IntEnumMod, ThreadItem
 from typing import Union
 
 # Internal ======================================
-from .api import ADDRESS, FpPID
+from .api import ADDRESS, FpPID, to_bytes, from_bytes
 
 
 # Definitions ===================================
@@ -97,7 +97,7 @@ class FpFrame(Frame):
         """
         return bytearray(
             bytes([self.pid]) +
-            self.length.to_bytes(length=2, byteorder='big', signed=False) +
+            to_bytes(value=self.length, size=2) +
             self.packet
             )
 
@@ -109,10 +109,10 @@ class FpFrame(Frame):
         :rtype: bytearray
         """
         return bytearray(
-            self.HEADER.to_bytes(length=2, byteorder='big', signed=False) +
-            self.address.to_bytes(length=4, byteorder='big', signed=False) +
+            to_bytes(value=self.HEADER, size=2) +
+            to_bytes(value=self.address, size=4) +
             self.raw() +
-            self.checksum.to_bytes(length=2, byteorder='big', signed=False)
+            to_bytes(value=self.checksum, size=2)
             )
 
     @staticmethod
@@ -130,7 +130,7 @@ class FpFrame(Frame):
             return None
 
         # Check frame fixed header
-        head = int.from_bytes(bytes=data[0:2], byteorder='big', signed=False)
+        head = from_bytes(data=data[0:2])
         if head != FpFrame.HEADER:
             return None
 
@@ -140,14 +140,14 @@ class FpFrame(Frame):
 
         # Parse frame bytes
         tmp = FpFrame(
-            address=int.from_bytes(bytes=data[2:6], byteorder='big', signed=False),
+            address=from_bytes(data=data[2:6]),
             pid=FpPID(data[6]),
             packet=data[9:-2]
             )
 
         # Check consistency using CRC
-        plen = int.from_bytes(bytes=data[7:9], byteorder='big', signed=False)
-        csum = int.from_bytes(bytes=data[-2:], byteorder='big', signed=False)
+        plen = from_bytes(data=data[7:9])
+        csum = from_bytes(data=data[-2:])
         if (plen != tmp.length) or (csum != tmp.checksum):
             return None
         return tmp
@@ -184,7 +184,7 @@ class FpFrameHandler(FrameHandler):
         """
         if self._state == self.State.WAIT_HEAD:
             # Get bytes until the header appears...
-            recv = serial.read_until(expected=FpFrame.HEADER.to_bytes(length=2, byteorder='big', signed=False))
+            recv = serial.read_until(expected=to_bytes(value=FpFrame.HEADER, size=2))
             if recv is None:
                 return False
 
@@ -202,7 +202,7 @@ class FpFrameHandler(FrameHandler):
             self._recv.extend(recv)
 
             # Define how many bytes to get and wait for them
-            rlen = int.from_bytes(bytes=recv[-2:], byteorder='big', signed=False)
+            rlen = from_bytes(data=recv[-2:])
             recv = serial.read_until(size=rlen)
             if recv is None:
                 self._restart()
