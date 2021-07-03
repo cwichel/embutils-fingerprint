@@ -11,8 +11,8 @@ Fingerprint frame test suite.
 
 import unittest
 
-from fpsensor.fpapi import FpPID
-from fpsensor.fpframe import FpFrame
+from fpsensor.api import FpPID
+from fpsensor.frame import FpFrame
 
 
 # Test Definitions ==============================

@@ -12,11 +12,10 @@ Fingerprint frame stream test suite.
 import time
 import unittest
 from embutils.serial.core import SerialDevice, FrameStream
-from embutils.serial.data import Frame, FrameHandler
 from embutils.utils import UsbID, LOG_SDK
 
-from fpsensor.fpapi import FpPID
-from fpsensor.fpframe import FpFrame, FpFrameHandler
+from fpsensor.api import FpPID
+from fpsensor.frame import FpFrame, FpFrameHandler
 
 LOG_SDK.enable()
 
@@ -33,7 +32,7 @@ class TestFrameStream(unittest.TestCase):
         self.send_and_receive(send=frame, handler=FpFrameHandler())
 
     @staticmethod
-    def send_and_receive(send: Frame, handler: FrameHandler) -> None:
+    def send_and_receive(send: FpFrame, handler: FpFrameHandler) -> None:
         """Simulate a serial device on loop mode and perform a comparison between
         the data being received and sent.
         """
@@ -41,7 +40,7 @@ class TestFrameStream(unittest.TestCase):
         is_ready = False
 
         # Manage frame reception
-        def on_frame_received(recv: Frame):
+        def on_frame_received(recv: FpFrame):
             nonlocal send, is_ready
 
             assert recv is not None
@@ -51,7 +50,7 @@ class TestFrameStream(unittest.TestCase):
 
         # Initialize frame stream
         fh = handler
-        sd = SerialDevice(usb_id=UsbID(vid=0x1234, pid=0x5678), looped=True)
+        sd = SerialDevice(uid=UsbID(vid=0x1234, pid=0x5678), looped=True)
         fs = FrameStream(serial_device=sd, frame_handler=fh)
         fs.on_frame_received += lambda frame: on_frame_received(recv=frame)
 
@@ -60,7 +59,7 @@ class TestFrameStream(unittest.TestCase):
 
         # Maintain alive the process
         while not is_ready:
-            time.sleep(0.1)
+            time.sleep(0.01)
 
 
 # Test Execution ================================
