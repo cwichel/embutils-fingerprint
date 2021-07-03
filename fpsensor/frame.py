@@ -61,7 +61,7 @@ class FpFrame(Frame):
         """
         Representation string.
 
-        :returns: Representation string.
+        :return: Representation string.
         :rtype: str
         """
         return f'{self.__class__.__name__}(address=0x{self.address:08X}, pid={str(self.pid)}, packet=0x{self.packet.hex()})'
@@ -72,7 +72,7 @@ class FpFrame(Frame):
         Packet checksum. This value computes a checksum over the PID, length
         and packet data.
 
-        :returns: Packet checksum.
+        :return: Packet checksum.
         :rtype: int
         """
         return 0xFFFF & sum(self.raw())
@@ -82,7 +82,7 @@ class FpFrame(Frame):
         """
         Packet length. By definition: `len(packet) + len(checksum)`
 
-        :returns: Packet length.
+        :return: Packet length.
         :rtype: int
         """
         return len(self.packet) + 2
@@ -92,7 +92,7 @@ class FpFrame(Frame):
         Raw frame packet data. This group was defined to ease the checksum
         computation. The contents are: PID, length and packet data.
 
-        :returns: Serialized packet bytes.
+        :return: Serialized packet bytes.
         :rtype: bytearray
         """
         return bytearray(
@@ -105,7 +105,7 @@ class FpFrame(Frame):
         """
         Converts the frame into a byte array.
 
-        :returns: Serialized frame.
+        :return: Serialized frame.
         :rtype: bytearray
         """
         return bytearray(
@@ -122,7 +122,7 @@ class FpFrame(Frame):
 
         :param bytearray data: Bytes to be parsed.
 
-        :returns: None if deserialization fail, deserialized object otherwise.
+        :return: None if deserialization fail, deserialized object otherwise.
         :rtype: FpFrame
         """
         # Check minimum length
@@ -163,12 +163,14 @@ class FpFrameHandler(FrameHandler):
         Serial read process states.
         """
         WAIT_HEAD   = 0x01      # Wait for the frame header to be detected
-        WAIT_DATA   = 0x02      # Read the remaining data
+        WAIT_BASE   = 0x02      # Wait for frame length
+        WAIT_DATA   = 0x03      # Wait for remaining data
 
     def __init__(self):
         """
         This class don't require any input from the user to be initialized.
         """
+        self._count = 0
         self._state = self.State.WAIT_HEAD
         self._recv  = bytearray()
 
@@ -179,45 +181,55 @@ class FpFrameHandler(FrameHandler):
         :param SerialDevice serial: Serial device from where the bytes are read.
         :param EventHook emitter:   Event to be raised when a frame is received.
 
-        :returns: True if success, false on serial device disconnection or reading issues.
+        :return: True if success, false on serial device disconnection or reading issues.
         :rtype: bool
         """
-        if self._state == self.State.WAIT_HEAD:
-            # Get bytes until the header appears...
-            recv = serial.read_until(expected=to_bytes(value=FpFrame.HEADER, size=2))
-            if recv is None:
-                return False
+        # Get all the available data and put it into the receive buffer
+        recv = serial.read(size=serial.serial.in_waiting if serial.is_open else 1)
+        if recv is None:
+            return False
+        self._recv.extend(recv)
 
-            # Process bytes
-            self._recv  = bytearray(recv[-2:])
-            if self._recv:
+        # Process received bytes
+        while True:
+            # Don't continue if we dont have at least the minimum frame length
+            if len(self._recv) < FpFrame.LENGTH:
+                break
+
+            elif self._state == self.State.WAIT_HEAD:
+                # Find the header and set it as start
+                index = self._recv.find(to_bytes(value=FpFrame.HEADER, size=2))
+                if index == -1:
+                    # Preserve the last byte (to detect possible header)
+                    self._recv = self._recv[-1:]
+                    break
+                # Prepare data
+                self._recv  = self._recv[index:]
+                self._state = self.State.WAIT_BASE
+
+            elif self._state == self.State.WAIT_BASE:
+                # Check for length to define missing bytes
+                tmp = from_bytes(data=self._recv[7:9])
+                self._count = FpFrame.LENGTH + tmp - 2
                 self._state = self.State.WAIT_DATA
 
-        elif self._state == self.State.WAIT_DATA:
-            # Get the next bytes until length
-            recv = serial.read_until(size=7)
-            if recv is None:
+            elif self._state == self.State.WAIT_DATA:
+                # Wait for frame bytes
+                if len(self._recv) < self._count:
+                    break
+                # Parse frame and emit (if possible)
+                frame = FpFrame.deserialize(data=self._recv[0:self._count])
+                if frame:
+                    ThreadItem(name=f'{self.__class__.__name__}.on_frame_received', target=lambda: emitter.emit(frame=frame))
+                    self._recv = self._recv[self._count:]
+                else:
+                    self._recv = self._recv[2:]
                 self._restart()
-                return False
-            self._recv.extend(recv)
 
-            # Define how many bytes to get and wait for them
-            rlen = from_bytes(data=recv[-2:])
-            recv = serial.read_until(size=rlen)
-            if recv is None:
+            else:
+                # Shouldn't be here...
                 self._restart()
-                return False
-            self._recv.extend(recv)
-
-            # Parse frame and emit
-            frame = FpFrame.deserialize(data=self._recv)
-            if frame:
-                ThreadItem(name=f'{self.__class__.__name__}.on_frame_received', target=lambda: emitter.emit(frame=frame))
-            self._restart()
-
-        else:
-            # Shouldn't be here...
-            self._restart()
+                break
 
         # Return status
         return True
@@ -226,5 +238,5 @@ class FpFrameHandler(FrameHandler):
         """
         Restarts the frame handler state machine.
         """
-        self._state = self.State.WAIT_HEAD
-        self._recv.clear()
+        self._state = self.State.WAIT_BASE
+        self._count = 0

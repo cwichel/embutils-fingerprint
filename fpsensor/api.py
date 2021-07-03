@@ -149,7 +149,7 @@ class FpBaudrate(IntEnumMod):
         """
         Converts the fingerprint baudrate definitions into integers.
 
-        :returns: Baudrate value.
+        :return: Baudrate value.
         :rtype: int
         """
         return self * 9600
@@ -161,7 +161,7 @@ class FpBaudrate(IntEnumMod):
 
         :param int value: Baudrate value.
 
-        :returns: Fingerprint baudrate code.
+        :return: Fingerprint baudrate code.
         :rtype: FpBaudrate
         """
         if cls.has_value(value=value):
@@ -205,7 +205,7 @@ class FpParameterID(IntEnumMod):
         """
         Returns the datatype for the given parameter configuration.
 
-        :returns: Parameter data type.
+        :return: Parameter data type.
         :rtype: Type[FpBaudrate, FpSecurity, FpPacketSize]
         """
         if self == self.BAUDRATE:
@@ -251,7 +251,7 @@ class FpSystemParameters(Serialized):
         """
         Representation string.
 
-        :returns: Representation string.
+        :return: Representation string.
         :rtype: str
         """
         return f'{self.__class__.__name__}(status=0x{self.status:04X}, id=0x{self.id:04X}, ' \
@@ -262,7 +262,7 @@ class FpSystemParameters(Serialized):
         """
         Converts the parameters into a byte array.
 
-        :returns: Serialized frame.
+        :return: Serialized frame.
         :rtype: bytearray
         """
         return bytearray(
@@ -282,7 +282,7 @@ class FpSystemParameters(Serialized):
 
         :param bytearray data: Bytes to be parsed.
 
-        :returns: None if deserialization fail, deserialized object otherwise.
+        :return: None if deserialization fail, deserialized object otherwise.
         :rtype: FpSystemParameters
         """
         # Check data size
