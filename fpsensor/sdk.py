@@ -12,7 +12,7 @@ Fingerprint SDK implementation.
 # External ======================================
 import time
 from embutils.serial.core import SerialInterface
-from embutils.utils import time_elapsed, LOG_SDK
+from embutils.utils import time_elapsed, LOG_SDK, EventHook, ThreadItem
 from PIL import Image
 from typing import Tuple, Union
 
@@ -53,14 +53,19 @@ class FpSDK(SerialInterface):
 
             def <callback>()
 
-    #.  **on_finger_pressed:** This event is emitted when the finger press the
-        sensor. Subscribe using callbacks with syntax::
+    #.  **on_finger_detected:** This event is emitted when the finger press the
+        sensor. The detection is only possible when if the sensor has the TOUT signal
+        pin connected to the CTS pin on the serial adapter. Subscribe using callbacks
+        with syntax::
 
             def <callback>()
 
     """
     #: Default response timeout
-    RESPONSE_TIMEOUT_S = 5.0
+    RESPONSE_TIMEOUT_S  = 5.0
+
+    #: Default finger detection
+    DETECTION_PERIOD    = 0.3
 
     #: Default serial device settings
     SERIAL_SETTINGS = {
@@ -116,160 +121,11 @@ class FpSDK(SerialInterface):
         # Initialize serial interface
         super(FpSDK, self).__init__(frame_handler=FpFrameHandler(), port=port, looped=looped)
 
-    def _command_get(self,
-                     command: FpCommand, packet: bytearray = bytearray(),
-                     data_wait: bool = False
-                     ) -> Tuple[FpFrame, bytearray]:
-        """
-        Use this function when need to get parameters / data from to the device.
-
-        :param FpCommand command:   Command ID.
-        :param bytearray packet:    Command packet.
-        :param bool data_wait:      True if waiting for data, False otherwise.
-
-        :return: A tuple that contains: The response frame (0) and a buffer with response data (1).
-        :rtype: Tuple[FpFrame, bytearray]
-        """
-        data_ok = False
-        data_buff = bytearray()
-        time_start = time.time()
-
-        def wait_ack_logic(sent: FpFrame, recv: FpFrame):
-            """Wait for ACK. If waiting for data, enable reception process.
-            """
-            _ = sent
-            is_ack = (recv.pid == FpPID.ACK)
-            return is_ack
-
-        def wait_data_logic(frame: FpFrame):
-            """Wait for all data to be received.
-            """
-            nonlocal data_buff, data_ok, time_start
-            is_data = (frame.pid == FpPID.DATA)
-            is_end = (frame.pid == FpPID.END_OF_DATA)
-            if is_data or is_end:
-                time_start = time.time()
-                data_buff.extend(frame.packet)
-            if is_end:
-                data_ok = True
-
-        # Prepare data reception
-        if data_wait:
-            self.on_frame_received += wait_data_logic
-
-        # Transmit frame
-        send = FpFrame(address=self._addr, pid=FpPID.COMMAND, packet=bytearray([command]) + packet)
-        resp = self.transmit(send=send, logic=wait_ack_logic)
-        if not isinstance(resp, FpFrame):
-            raise self.Exception(message='Unable to get the response packet', error=FpError.ERROR_PACKET_RECEPTION)
-
-        # Check command response and errors
-        if resp.pid != FpPID.ACK:
-            raise self.Exception(message='The received packet is not an ACK!', error=FpError.ERROR_PACKET_FAULTY)
-
-        code = FpError(resp.packet[0])
-        if code == FpError.ERROR_PACKET_TRANSMISSION:
-            raise self.Exception(message='Communication error!', error=code)
-        elif code == FpError.ERROR_ADDRESS:
-            raise self.Exception(message='The sensor address is wrong!', error=code)
-        elif code == FpError.ERROR_PASSWORD_VERIFY:
-            raise self.Exception(message='Password verification required!', error=code)
-
-        # Wait for data if required
-        if data_wait:
-            time_start = time.time()
-            while not data_ok and (time_elapsed(start=time_start) < self.RESPONSE_TIMEOUT_S):
-                time.sleep(0.01)
-            self.on_frame_received -= wait_data_logic
-            if not data_ok:
-                raise TimeoutError(f'Timeout while waiting for data.')
-
-        # Check and return
-        code = FpError(resp.packet[0])
-        if not ((code == FpError.SUCCESS) or (code == FpError.HANDSHAKE_SUCCESS)):
-            raise self.Exception(message=f'Transaction error', error=code)
-        return resp, data_buff
-
-    def _command_set(self,
-                     command: FpCommand, packet: bytearray = bytearray(),
-                     data: bytearray = bytearray(),
-                     ) -> bool:
-        """
-        Use this function when need to set parameters / data to the device.
-
-        :param FpCommand command:   Command ID.
-        :param bytearray packet:    Command packet.
-        :param bytearray data:      If not empty this data will be sent after successful command.
-
-        :return: True if succeed, false otherwise.
-        :rtype: bool
-        """
-        # Send command
-        recv, _ = self._command_get(command=command, packet=packet)
-        code = FpError(recv.packet[0])
-        succ = (code == FpError.SUCCESS) or (code == FpError.HANDSHAKE_SUCCESS)
-
-        # Send data, if required
-        if data and succ:
-            data_size = len(data)
-            pack_size = self.packet_size.to_int()
-            pack_num  = (data_size // pack_size) + int((data_size % pack_size) > 0)
-
-            end   = 0
-            frame = FpFrame(address=self._addr, pid=FpPID.DATA)
-            for idx in range(pack_num - 1):
-                start = idx * pack_size
-                end   = start + pack_size
-                frame.packet = data[start:end]
-                self.transmit(send=frame)
-
-            frame.pid    = FpPID.END_OF_DATA
-            frame.packet = data[end:]
-            self.transmit(send=frame)
-
-        return succ
-
-    def _value_set(self, command: FpCommand, value: int) -> bool:
-        """
-        Set the selected command with the given value.
-
-        :param FpCommand command: Command ID.
-        :param int value: Value to set.
-
-        :return: A tuple that contains: Operation status (0) and return code (1).
-        :rtype: Tuple[bool, FpError]
-        """
-        value = to_bytes(value=self._value_check(value=value), size=2)
-        return self._command_set(command=command, packet=value)
-
-    def _parameter_set(self, param: FpParameterID, value: Union[int, FpBaudrate, FpPacketSize, FpSecurity]) -> bool:
-        """
-        Set the selected parameter with the given value.
-
-        :param FpParameterID param: Parameter ID.
-        :param Union[int, FpBaudrate, FpPacketSize, FpSecurity] value: Parameter setting.
-
-        :return: True if succeed, false otherwise.
-        :rtype: bool
-        """
-        # Get type
-        _type = param.get_type()
-        if not _type.has_value(value=value):
-            raise ValueError(f'{_type.__name__} value not supported: {value}')
-
-        # Perform operation
-        value = _type(value)
-        succ = self._command_set(command=FpCommand.PARAMETERS_SET, packet=bytearray([param, value]))
-        if param != FpParameterID.BAUDRATE:
-            return succ
-
-        # Special case for baudrate
-        if succ:
-            logger_sdk.info(f'Updating serial baudrate to {str(value)}...')
-            self.frame_stream.pause()
-            self.frame_stream.serial_device.serial.baudrate = value.to_int()
-            self.frame_stream.resume()
-        return succ
+        # Set finger detection
+        self.on_finger_detected = EventHook()
+        self._state     = False
+        self._period    = self.DETECTION_PERIOD
+        self._detector  = ThreadItem(name=f'{self.__class__.__name__}.detector_process', target=self._detector_process)
 
     @property
     def address(self) -> int:
@@ -381,6 +237,37 @@ class FpSDK(SerialInterface):
         :param Union[int, FpPacketSize] value: Packet size.
         """
         self._parameter_set(param=FpParameterID.PACKET_SIZE, value=value)
+
+    @property
+    def period(self) -> float:
+        """
+        Get the finger detection period.
+
+        :returns: Period in seconds.
+        :rtype: float
+        """
+        return self._period
+
+    @period.setter
+    def period(self, value: float) -> None:
+        """
+        Get the finger detection period.
+
+        :param float value: Detection period in seconds.
+        """
+        if value <= 0.0:
+            raise ValueError('The detection period needs to be greater than zero.')
+        self._period = value
+
+    @property
+    def is_finger(self) -> bool:
+        """
+        Returns if the finger is currently on the sensor.
+
+        :return: True if finger on sensor, false otherwise.
+        :rtype: bool
+        """
+        return self.frame_stream.serial_device.serial.cts
 
     def handshake(self) -> bool:
         """
@@ -708,6 +595,130 @@ class FpSDK(SerialInterface):
         recv, _ = self._command_get(command=FpCommand.GENERATE_RANDOM)
         return from_bytes(data=recv.packet[1:5])
 
+    def _detector_process(self) -> None:
+        """
+        Pulls periodically the state of the TOUT signal connected to CTS. If the finger is detected then an event is
+        emitted.
+        """
+        time_start = time.time()
+        while True:
+            if time_elapsed(start=time_start) > self._period:
+                state = self.frame_stream.serial_device.serial.cts
+                if state != self._state:
+                    self._state = state
+                    if self._state:
+                        logger_sdk.info(f'Finger detected on sensor!')
+                        self.on_finger_detected.emit()
+                time_start = time.time()
+            time.sleep(0.01)
+
+    def _command_get(self, command: FpCommand, packet: bytearray = bytearray(), data_wait: bool = False) -> Tuple[FpFrame, bytearray]:
+        """
+        Use this function when need to get parameters / data from to the device.
+
+        :param FpCommand command:   Command ID.
+        :param bytearray packet:    Command packet.
+        :param bool data_wait:      True if waiting for data, False otherwise.
+
+        :return: A tuple that contains: The response frame (0) and a buffer with response data (1).
+        :rtype: Tuple[FpFrame, bytearray]
+        """
+        data_ok = False
+        data_buff = bytearray()
+        time_start = time.time()
+
+        def wait_ack_logic(sent: FpFrame, recv: FpFrame):
+            """Wait for ACK. If waiting for data, enable reception process.
+            """
+            _ = sent
+            is_ack = (recv.pid == FpPID.ACK)
+            return is_ack
+
+        def wait_data_logic(frame: FpFrame):
+            """Wait for all data to be received.
+            """
+            nonlocal data_buff, data_ok, time_start
+            is_data = (frame.pid == FpPID.DATA)
+            is_end = (frame.pid == FpPID.END_OF_DATA)
+            if is_data or is_end:
+                time_start = time.time()
+                data_buff.extend(frame.packet)
+            if is_end:
+                data_ok = True
+
+        # Prepare data reception
+        if data_wait:
+            self.on_frame_received += wait_data_logic
+
+        # Transmit frame
+        send = FpFrame(address=self._addr, pid=FpPID.COMMAND, packet=bytearray([command]) + packet)
+        resp = self.transmit(send=send, logic=wait_ack_logic)
+        if not isinstance(resp, FpFrame):
+            raise self.Exception(message='Unable to get the response packet', error=FpError.ERROR_PACKET_RECEPTION)
+
+        # Check command response and errors
+        if resp.pid != FpPID.ACK:
+            raise self.Exception(message='The received packet is not an ACK!', error=FpError.ERROR_PACKET_FAULTY)
+
+        code = FpError(resp.packet[0])
+        if code == FpError.ERROR_PACKET_TRANSMISSION:
+            raise self.Exception(message='Communication error!', error=code)
+        elif code == FpError.ERROR_ADDRESS:
+            raise self.Exception(message='The sensor address is wrong!', error=code)
+        elif code == FpError.ERROR_PASSWORD_VERIFY:
+            raise self.Exception(message='Password verification required!', error=code)
+
+        # Wait for data if required
+        if data_wait:
+            time_start = time.time()
+            while not data_ok and (time_elapsed(start=time_start) < self.RESPONSE_TIMEOUT_S):
+                time.sleep(0.01)
+            self.on_frame_received -= wait_data_logic
+            if not data_ok:
+                raise TimeoutError(f'Timeout while waiting for data.')
+
+        # Check and return
+        code = FpError(resp.packet[0])
+        if not ((code == FpError.SUCCESS) or (code == FpError.HANDSHAKE_SUCCESS)):
+            raise self.Exception(message=f'Transaction error', error=code)
+        return resp, data_buff
+
+    def _command_set(self, command: FpCommand, packet: bytearray = bytearray(), data: bytearray = bytearray()) -> bool:
+        """
+        Use this function when need to set parameters / data to the device.
+
+        :param FpCommand command:   Command ID.
+        :param bytearray packet:    Command packet.
+        :param bytearray data:      If not empty this data will be sent after successful command.
+
+        :return: True if succeed, false otherwise.
+        :rtype: bool
+        """
+        # Send command
+        recv, _ = self._command_get(command=command, packet=packet)
+        code = FpError(recv.packet[0])
+        succ = (code == FpError.SUCCESS) or (code == FpError.HANDSHAKE_SUCCESS)
+
+        # Send data, if required
+        if data and succ:
+            data_size = len(data)
+            pack_size = self.packet_size.to_int()
+            pack_num  = (data_size // pack_size) + int((data_size % pack_size) > 0)
+
+            end   = 0
+            frame = FpFrame(address=self._addr, pid=FpPID.DATA)
+            for idx in range(pack_num - 1):
+                start = idx * pack_size
+                end   = start + pack_size
+                frame.packet = data[start:end]
+                self.transmit(send=frame)
+
+            frame.pid    = FpPID.END_OF_DATA
+            frame.packet = data[end:]
+            self.transmit(send=frame)
+
+        return succ
+
     def _template_manage(self, buffer: Union[int, FpBufferID], index: int = 0, save: bool = True) -> bool:
         """
         Save/load a template to/from the device database.
@@ -728,6 +739,48 @@ class FpSDK(SerialInterface):
         cmd  = FpCommand.TEMPLATE_SAVE if save else FpCommand.TEMPLATE_LOAD
         pack = bytearray([FpBufferID(buffer)]) + to_bytes(value=index, size=2)
         return self._command_set(command=cmd, packet=pack)
+
+    def _value_set(self, command: FpCommand, value: int) -> bool:
+        """
+        Set the selected command with the given value.
+
+        :param FpCommand command: Command ID.
+        :param int value: Value to set.
+
+        :return: A tuple that contains: Operation status (0) and return code (1).
+        :rtype: Tuple[bool, FpError]
+        """
+        value = to_bytes(value=self._value_check(value=value), size=2)
+        return self._command_set(command=command, packet=value)
+
+    def _parameter_set(self, param: FpParameterID, value: Union[int, FpBaudrate, FpPacketSize, FpSecurity]) -> bool:
+        """
+        Set the selected parameter with the given value.
+
+        :param FpParameterID param: Parameter ID.
+        :param Union[int, FpBaudrate, FpPacketSize, FpSecurity] value: Parameter setting.
+
+        :return: True if succeed, false otherwise.
+        :rtype: bool
+        """
+        # Get type
+        _type = param.get_type()
+        if not _type.has_value(value=value):
+            raise ValueError(f'{_type.__name__} value not supported: {value}')
+
+        # Perform operation
+        value = _type(value)
+        succ = self._command_set(command=FpCommand.PARAMETERS_SET, packet=bytearray([param, value]))
+        if param != FpParameterID.BAUDRATE:
+            return succ
+
+        # Special case for baudrate
+        if succ:
+            logger_sdk.info(f'Updating serial baudrate to {str(value)}...')
+            self.frame_stream.pause()
+            self.frame_stream.serial_device.serial.baudrate = value.to_int()
+            self.frame_stream.resume()
+        return succ
 
     @staticmethod
     def _value_check(value: int) -> int:
