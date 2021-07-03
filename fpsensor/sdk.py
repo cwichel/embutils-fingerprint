@@ -13,13 +13,12 @@ Fingerprint SDK implementation.
 import time
 from embutils.serial.core import SerialInterface
 from embutils.utils import time_elapsed, LOG_SDK
-from pathlib import Path
 from PIL import Image
 from typing import Tuple, Union
 
 # Internal ======================================
 from .api import (
-    ADDRESS, PASSWORD,
+    ADDRESS, PASSWORD, NOTEPAD_COUNT, NOTEPAD_SIZE,
     FpCommand, FpError, FpPID, FpBufferID, FpParameterID, FpBaudrate, FpPacketSize, FpSecurity,
     FpSystemParameters,
     to_bytes, from_bytes
@@ -205,9 +204,30 @@ class FpSDK(SerialInterface):
         :return: True if succeed, false otherwise.
         :rtype: bool
         """
+        # Send command
         recv, _ = self._command_get(command=command, packet=packet)
         code = FpError(recv.packet[0])
-        return (code == FpError.SUCCESS) or (code == FpError.HANDSHAKE_SUCCESS)
+        succ = (code == FpError.SUCCESS) or (code == FpError.HANDSHAKE_SUCCESS)
+
+        # Send data, if required
+        if data and succ:
+            data_size = len(data)
+            pack_size = self.packet_size.to_int()
+            pack_num  = (data_size // pack_size) + int((data_size % pack_size) > 0)
+
+            end   = 0
+            frame = FpFrame(address=self._addr, pid=FpPID.DATA)
+            for idx in range(pack_num - 1):
+                start = idx * pack_size
+                end   = start + pack_size
+                frame.packet = data[start:end]
+                self.transmit(send=frame)
+
+            frame.pid    = FpPID.END_OF_DATA
+            frame.packet = data[end:]
+            self.transmit(send=frame)
+
+        return succ
 
     def _value_set(self, command: FpCommand, value: int) -> bool:
         """
@@ -591,17 +611,92 @@ class FpSDK(SerialInterface):
 
         return from_bytes(data=recv.packet[1:3]), from_bytes(data=recv.packet[3:5])
 
-    def buffer_upload(self, buffer: Union[int, FpBufferID], path: Path) -> bool:
-        pass
+    def buffer_download(self, buffer: Union[int, FpBufferID]) -> bytearray:
+        """
+        Downloads the char buffer data.
 
-    def buffer_download(self, buffer: Union[int, FpBufferID], path: Path) -> bool:
-        pass
+        :param Union[int, FpBufferID] buffer: Buffer ID.
+
+        :return: Buffer contents.
+        :rtype: bytearray
+        """
+        if not FpBufferID.has_value(value=buffer):
+            raise ValueError(f'{FpBufferID.__name__} value not supported: {buffer}')
+
+        pack = bytearray([FpBufferID(buffer)])
+        _, data = self._command_get(command=FpCommand.TEMPLATE_DOWNLOAD, packet=pack, data_wait=True)
+        return data
+
+    def buffer_upload(self, buffer: Union[int, FpBufferID], data: bytearray) -> bool:
+        """
+        Uploads data to the char buffer. After transmission this function verifies the contents of the buffer to ensure
+        the successful transmission.
+
+        :param Union[int, FpBufferID] buffer: Buffer ID.
+        :param bytearray data: Data to be uploaded to the buffer.
+
+        :return: Buffer contents.
+        :rtype: bytearray
+        """
+        if not FpBufferID.has_value(value=buffer):
+            raise ValueError(f'{FpBufferID.__name__} value not supported: {buffer}')
+        if not data:
+            raise ValueError(f'Data is empty')
+
+        # Send and verify
+        succ = self._command_set(command=FpCommand.TEMPLATE_UPLOAD, data=data)
+        if succ:
+            recv = self.buffer_download(buffer=buffer)
+            return data == recv
+        return succ
 
     def notepad_get(self, page: int) -> bytearray:
-        pass
+        """
+        Get the selected notepad page contents.
+
+        :param int page: Page number.
+
+        :return: Notepad page data.
+        :rtype: bytearray
+        """
+        if page < 0 or page >= NOTEPAD_COUNT:
+            raise ValueError(f'Notepad page out of range: {0} <= {page} < {NOTEPAD_COUNT}')
+
+        recv, _ = self._command_get(command=FpCommand.NOTEPAD_GET, packet=bytearray([page]))
+        data = recv.packet[1:]
+        if len(data) != NOTEPAD_SIZE:
+            raise BufferError(f'Notepad size is not the expected: {len(data)} instead of {NOTEPAD_SIZE}')
+        return data
 
     def notepad_set(self, page: int, data: bytearray) -> bool:
-        pass
+        """
+        Set the selected notepad page contents.
+
+        :param int page:        Page number.
+        :param bytearray data:  Data to be written on the page.
+
+        :return: True if succeed, false otherwise.
+        :rtype: bool
+        """
+        if page < 0 or page >= NOTEPAD_COUNT:
+            raise ValueError(f'Notepad page out of range: {0} <= {page} < {NOTEPAD_COUNT}')
+        if len(data) > NOTEPAD_SIZE:
+            logger_sdk.info(f'Cropping data to match the notepad page size: {len(data)} cropped to {NOTEPAD_SIZE}')
+            data = data[:NOTEPAD_SIZE]
+
+        pack = bytearray([page]) + data
+        return self._command_set(command=FpCommand.NOTEPAD_SET, packet=pack)
+
+    def notepad_clear(self, page: int) -> bool:
+        """
+        Clear the contents of the selected notepad page.
+
+        :param int page: Page number.
+
+        :return: True if succeed, false otherwise.
+        :rtype: bool
+        """
+        return self.notepad_set(page=page, data=bytearray(NOTEPAD_SIZE * [0x00]))
 
     def random_get(self) -> int:
         """

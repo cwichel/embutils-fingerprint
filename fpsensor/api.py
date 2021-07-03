@@ -12,6 +12,7 @@ Fingerprint API definitions.
 # External ======================================
 from dataclasses import dataclass
 from embutils.utils import IntEnumMod, Serialized
+from math import log2
 from typing import Type, Union
 
 
@@ -61,8 +62,8 @@ class FpCommand(IntEnumMod):
     TEMPLATE_CREATE         = 0x05
     TEMPLATE_SAVE           = 0x06
     TEMPLATE_LOAD           = 0x07
-    TEMPLATE_UPLOAD         = 0x08
-    TEMPLATE_DOWNLOAD       = 0x09
+    TEMPLATE_UPLOAD         = 0x09
+    TEMPLATE_DOWNLOAD       = 0x08
     TEMPLATE_DELETE         = 0x0C
     TEMPLATE_EMPTY          = 0x0D
     TEMPLATE_COUNT          = 0x1D
@@ -166,10 +167,12 @@ class FpBaudrate(IntEnumMod):
         """
         if cls.has_value(value=value):
             return FpBaudrate(value)
-        elif cls.has_value(value=(value // 9600)):
-            return FpBaudrate(value // 9600)
         else:
-            raise ValueError(f"Value {value} is not supported by the sensor.")
+            val = (value // 9600)
+            if cls.has_value(value=val):
+                return FpBaudrate(val)
+            else:
+                raise ValueError(f"Value {value} is not supported by the sensor.")
 
 
 class FpSecurity(IntEnumMod):
@@ -191,6 +194,34 @@ class FpPacketSize(IntEnumMod):
     PACKET_SIZE_64  = 0x01
     PACKET_SIZE_128 = 0x02
     PACKET_SIZE_256 = 0x03
+
+    def to_int(self) -> int:
+        """
+        Converts the fingerprint packet size to integer.
+
+        :return: Packet size.
+        :rtype: int
+        """
+        return 32 * (2 ** self)
+
+    @classmethod
+    def from_int(cls, value: int) -> 'FpPacketSize':
+        """
+        Tries to convert an integer into a suitable fingerprint packet size definition.
+
+        :param int value: Packet size.
+
+        :return: Fingerprint packet size code.
+        :rtype: FpBaudrate
+        """
+        if cls.has_value(value=value):
+            return FpPacketSize(value)
+        else:
+            val = int(log2(value >> 5))
+            if cls.has_value(value=val):
+                return FpPacketSize(val)
+            else:
+                raise ValueError(f"Value {value} is not a compatible packet size.")
 
 
 class FpParameterID(IntEnumMod):
