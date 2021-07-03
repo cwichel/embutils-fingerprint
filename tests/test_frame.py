@@ -3,24 +3,29 @@
 """
 Fingerprint frame test suite.
 
-@date:      2021
-@author:    Christian Wiche
-@contact:   cwichel@gmail.com
-@license:   The MIT License (MIT)
+:date:      2021
+:author:    Christian Wiche
+:contact:   cwichel@gmail.com
+:license:   The MIT License (MIT)
 """
 
+# External ======================================
 import unittest
 
+
+# Internal ======================================
 from fpsensor.api import FpPID
 from fpsensor.frame import FpFrame
 
 
 # Test Definitions ==============================
 class TestFrame(unittest.TestCase):
-    """Basic reference tests using the GeaFrame example.
+    """
+    Test basic frame operations.
     """
     def test_serialize(self):
-        """Check if the serialization of a frame is being done correctly.
+        """
+        Check if the serialization of a frame is being done correctly.
         """
         # Create frame for image capture
         data = bytearray([0xEF, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0x01, 0x00, 0x03, 0x01, 0x00, 0x05])
@@ -30,7 +35,8 @@ class TestFrame(unittest.TestCase):
         assert frame.serialize() == data
 
     def test_deserialize(self):
-        """Check if the deserialization of a frame is being done correctly.
+        """
+        Check if the deserialization of a frame is being done correctly.
         """
         # Deserialize image capture
         data  = bytearray([0xEF, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0x01, 0x00, 0x03, 0x01, 0x00, 0x05])
@@ -41,7 +47,8 @@ class TestFrame(unittest.TestCase):
         assert frame.serialize() == data
 
     def test_comparison(self):
-        """Check if the comparison of frames is being done correctly.
+        """
+        Check if the comparison of frames is being done correctly.
         """
         # Create frames
         frame_1 = FpFrame(pid=FpPID.COMMAND, packet=bytearray([0x07]))

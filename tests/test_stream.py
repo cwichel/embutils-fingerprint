@@ -9,32 +9,37 @@ Fingerprint frame stream test suite.
 @license:   The MIT License (MIT)
 """
 
+# External ======================================
 import time
 import unittest
 from embutils.serial.core import SerialDevice, FrameStream
 from embutils.utils import UsbID, LOG_SDK
 
+# Internal ======================================
 from fpsensor.api import FpPID
 from fpsensor.frame import FpFrame, FpFrameHandler
 
+
+# Definitions ===================================
 LOG_SDK.enable()
 
 
 # Test Definitions ==============================
 class TestFrameStream(unittest.TestCase):
-    """Basic streaming tests using the SimpleFrame example.
+    """
+    Test basic frame streaming.
     """
     def test_send_and_receive(self):
-        """Send and receive a frame using the frame stream on a looped serial device.
-        Test if the transmitted/received frames are the same.
+        """
+        Send and receive a frame using the frame stream and check if frames are the same.
         """
         frame = FpFrame(pid=FpPID.COMMAND, packet=bytearray([0x01]))
         self.send_and_receive(send=frame, handler=FpFrameHandler())
 
     @staticmethod
     def send_and_receive(send: FpFrame, handler: FpFrameHandler) -> None:
-        """Simulate a serial device on loop mode and perform a comparison between
-        the data being received and sent.
+        """S
+        Simulates a serial device on loop mode and performs a comparison between the data being sent/received.
         """
         # Stop flag
         is_ready = False
