@@ -1,0 +1,40 @@
+[tool.poetry]
+version = "0.1.0"
+name = "fpsensor"
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/cwichel/fpsensor"
+description = "Python library for ZhianTec fingerprint sensors"
+authors = ["Christian Wiche <cwichel@gmail.com>"]
+keywords = [
+    'python',
+    'utilities'
+    ]
+classifiers = [
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Topic :: Utilities',
+    ]
+
+[tool.poetry.scripts]
+test    = 'scripts.poetry:run_test'
+docs    = 'scripts.poetry:run_docs'
+html    = 'scripts.poetry:run_html'
+version = 'scripts.poetry:run_version'
+
+[tool.poetry.dependencies]
+python = "^3.8"
+embutils = "^0.2.1"
+Pillow = "^8.3.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+toml = "^0.10.2"
+Sphinx = "^4.0.2"
+sphinx-rtd-theme = "^0.5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
