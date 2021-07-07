@@ -1,7 +1,11 @@
 #!/usr/bin/python
 # -*- coding: ascii -*-
 """
-Fingerprint frame test suite.
+Test: Fingerprint sensor frame implementation capabilities:
+
+* Serialization
+* Deserialization
+* Object comparison
 
 :date:      2021
 :author:    Christian Wiche
@@ -18,8 +22,8 @@ from fpsensor.api import FpPID
 from fpsensor.frame import FpFrame
 
 
-# Test Definitions ==============================
-class TestFrame(unittest.TestCase):
+# Definitions ===================================
+class Test(unittest.TestCase):
     """
     Test basic frame operations.
     """
@@ -64,6 +68,7 @@ class TestFrame(unittest.TestCase):
         assert frame_1.serialize() != frame_3.serialize()
 
 
-# Test Execution ================================
+# Execution =====================================
 if __name__ == '__main__':
+    # Execute the tests
     unittest.main()

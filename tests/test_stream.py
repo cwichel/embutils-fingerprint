@@ -1,7 +1,9 @@
 #!/usr/bin/python
 # -*- coding: ascii -*-
 """
-Fingerprint frame stream test suite.
+Test: Fingerprint sensor frame stream capabilities:
+
+* Send, receive and process a frame.
 
 @date:      2021
 @author:    Christian Wiche
@@ -24,8 +26,8 @@ from fpsensor.frame import FpFrame, FpFrameHandler
 LOG_SDK.enable()
 
 
-# Test Definitions ==============================
-class TestFrameStream(unittest.TestCase):
+# Definitions ===================================
+class Test(unittest.TestCase):
     """
     Test basic frame streaming.
     """
@@ -67,6 +69,7 @@ class TestFrameStream(unittest.TestCase):
             time.sleep(0.01)
 
 
-# Test Execution ================================
+# Execution =====================================
 if __name__ == '__main__':
+    # Execute the tests
     unittest.main()
