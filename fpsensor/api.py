@@ -13,6 +13,7 @@ Fingerprint API definitions.
 from dataclasses import dataclass
 from embutils.utils import IntEnumMod, Serialized
 from math import log2
+from PIL import Image
 from typing import Type, Union
 
 
@@ -107,11 +108,13 @@ class FpError(IntEnumMod):
 
     ERROR_TEMPLATE_INVALID_INDEX        = 0x0B
     ERROR_TEMPLATE_LOAD                 = 0x0C
+    ERROR_TEMPLATE_UPLOAD               = 0xFD
     ERROR_TEMPLATE_DOWNLOAD             = 0x0D
     ERROR_TEMPLATE_DELETE               = 0x10
     ERROR_TEMPLATE_EMPTY                = 0x11
 
     ERROR_FLASH                         = 0x18
+    ERROR_DATABASE_FULL                 = 0xFE
     ERROR_TIMEOUT                       = 0xFF
     ERROR_UNDEFINED                     = 0x19
     ERROR_COMMUNICATION_PORT            = 0x1D
@@ -351,6 +354,53 @@ class FpSystemParameters(Serialized):
             packet=FpPacketSize(_pack),
             baudrate=FpBaudrate(_baud)
             )
+
+
+# Response tuples ===============================
+@dataclass
+class FpResponseSet:
+    """
+    Set command response.
+
+    :attr bool succ:    True if the command succeed, false otherwise.
+    :attr FpError code: Command response code.
+    """
+    succ:   bool
+    code:   FpError
+
+
+@dataclass
+class FpResponseGet(FpResponseSet):
+    """
+    Get command response.
+
+    :attr bytearray pack: Response packet data without the response code byte.
+    :attr bytearray data: Response data.
+    """
+    pack:   bytearray
+    data:   bytearray
+
+
+@dataclass
+class FpResponseMatch(FpResponseSet):
+    """
+    Fingerprint match response.
+
+    :attr int index: Index of the matching fingerprint on database. -1 if no available.
+    :attr int score: Matching fingerprint accuracy score.
+    """
+    index:  int
+    score:  int
+
+
+@dataclass
+class FpResponseValue(FpResponseSet):
+    """
+    Command value response.
+
+    :attr Union[None, int, bytearray, Image.Image, FpSystemParameters] value: Response value (depends on command).
+    """
+    value:  Union[None, int, bytearray, Image.Image, FpSystemParameters]
 
 
 # Utilities =====================================
