@@ -508,7 +508,7 @@ class FpSDK(SerialInterface):
         :rtype: FpResponseSet
         """
         if index < 0 or index >= self.capacity:
-            raise ValueError(f'Index exceeds device capacity: {index} > {self.capacity}')
+            raise ValueError(f'Index exceeds device capacity: 0 < index < {self.capacity}')
         if count < 0 or count > (self.capacity - index):
             raise ValueError(f'The selection exceeds bounds: {index + count} > {self.capacity}')
         pack = to_bytes(value=index, size=2) + to_bytes(value=count, size=2)
@@ -542,7 +542,7 @@ class FpSDK(SerialInterface):
             count = (self.capacity - index)
 
         if index < 0 or index >= self.capacity:
-            raise ValueError(f'Index exceeds device capacity: {index} > {self.capacity}')
+            raise ValueError(f'Index exceeds device capacity: 0 < index < {self.capacity}')
         if count < 0 or count > (self.capacity - index):
             raise ValueError(f'The selection exceeds bounds: {index + count} > {self.capacity}')
         if not FpBufferID.has_value(value=buffer):
@@ -806,7 +806,7 @@ class FpSDK(SerialInterface):
             index = self.template_index().value.find(0x00)
 
         if index < 0 or index >= self.capacity:
-            raise ValueError(f'Index exceeds device capacity: {index} > {self.capacity}')
+            raise ValueError(f'Index exceeds device capacity: 0 < index < {self.capacity}')
         if not FpBufferID.has_value(value=buffer):
             raise ValueError(f'Buffer value not supported: {buffer}')
 
