@@ -40,7 +40,7 @@ def example(sdk: FpSDK):
         # Shows value
         print(f'Generated random value: {recv.value}')
 
-    except sdk.Exception as info:
+    except Exception as info:
         # Prints the error string
         print(info)
 

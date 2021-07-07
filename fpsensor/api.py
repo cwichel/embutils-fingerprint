@@ -92,7 +92,6 @@ class FpError(IntEnumMod):
 
     ERROR_PACKET_TRANSMISSION           = 0x01
     ERROR_PACKET_RECEPTION              = 0x0E
-    ERROR_PACKET_FAULTY                 = 0xFE
 
     ERROR_FINGER_NOT_IN_SENSOR          = 0x02
     ERROR_FINGER_ENROLL_FAILED          = 0x03
@@ -114,14 +113,17 @@ class FpError(IntEnumMod):
     ERROR_TEMPLATE_EMPTY                = 0x11
 
     ERROR_FLASH                         = 0x18
-    ERROR_DATABASE_FULL                 = 0xFE
-    ERROR_TIMEOUT                       = 0xFF
     ERROR_UNDEFINED                     = 0x19
     ERROR_COMMUNICATION_PORT            = 0x1D
 
     ERROR_ADDRESS                       = 0x20
     ERROR_PASSWORD                      = 0x13
     ERROR_PASSWORD_VERIFY               = 0x21
+
+    # Custom error codes
+    ERROR_PACKET_FAULTY                 = 0xFD
+    ERROR_DATABASE_FULL                 = 0xFE
+    ERROR_TIMEOUT                       = 0xFF
 
 
 class FpBufferID(IntEnumMod):

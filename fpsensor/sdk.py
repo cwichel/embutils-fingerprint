@@ -549,7 +549,7 @@ class FpSDK(SerialInterface):
             raise ValueError(f'Buffer value not supported: {buffer}')
 
         cmd  = FpCommand.TEMPLATE_SEARCH_FAST if fast else FpCommand.TEMPLATE_SEARCH
-        pack = to_bytes(value=index, size=2) + to_bytes(value=count, size=2)
+        pack = bytearray([buffer]) + to_bytes(value=index, size=2) + to_bytes(value=count, size=2)
         recv = self._command_get(command=cmd, packet=pack)
         index = from_bytes(data=recv.pack[0:2]) if recv.succ else -1
         score = from_bytes(data=recv.pack[2:4])

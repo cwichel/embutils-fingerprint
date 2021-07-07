@@ -44,12 +44,12 @@ def example(sdk: FpSDK):
                 indexes.append(idx)
 
         # Shows value
-        print(f'Template index info:\n'
+        print(f'Device info:\n'
               f'- Capacity      : {sdk.capacity}\n'
               f'- Used count    : {sdk.count}\n'
               f'- Used indexes  : {", ".join(f"{idx}" for idx in indexes)}')
 
-    except sdk.Exception as info:
+    except Exception as info:
         # Prints the error string
         print(info)
 

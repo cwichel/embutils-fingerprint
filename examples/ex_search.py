@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: ascii -*-
 """
-Example: Fingerprint image generation and download.
+Example: Fingerprint capture and database search.
 
 :date:      2021
 :author:    Christian Wiche
@@ -14,7 +14,7 @@ Example: Fingerprint image generation and download.
 
 # Internal ======================================
 from fpsensor.sdk import FpSDK
-from fpsensor.api import FpBaudrate, ADDRESS, PASSWORD
+from fpsensor.api import FpBaudrate, FpBufferID, ADDRESS, PASSWORD
 
 from examples.ex_utils import wait_finger_action
 
@@ -34,20 +34,32 @@ def example(sdk: FpSDK):
             raise sdk.Exception(message=f'Error when trying to communicate with the device', code=recv.code)
         sdk.backlight(enable=False)
 
-        # Wait until finger press the sensor and capture
-        wait_finger_action(sdk=sdk, press=True)
-        sdk.image_capture()
-        sdk.backlight(enable=False)
+        # Repeat this until the image is detected correctly
+        tries = 0
+        while True:
+            # Wait until finger press the sensor and capture
+            wait_finger_action(sdk=sdk, press=False)
+            wait_finger_action(sdk=sdk, press=True)
+            sdk.image_capture()
+            sdk.backlight(enable=False)
 
-        # Tries to download the image
-        print(f'Image captured. Wait while the image is being downloaded...')
-        recv = sdk.image_download()
-        if not recv.succ:
-            raise sdk.Exception(message=f'Error while retrieving the image', code=recv.code)
+            # Convert the image
+            recv = sdk.image_convert(buffer=FpBufferID.BUFFER_1)
+            if not recv.succ:
+                tries += 1
+                if tries < 3:
+                    print(f'Error when converting fingerprint image ({str(recv.code)}). Try again!')
+                    continue
+                else:
+                    raise sdk.Exception(message=f'Unable to get a good image of the fingerprint', code=recv.code)
+            break
 
-        # Show the image
-        print(f'Image downloaded. Opening image now...')
-        recv.value.show()
+        # Execute search
+        recv = sdk.match_1_n(buffer=FpBufferID.BUFFER_1)
+        if recv.index == -1:
+            print(f'Fingerprint not found in database!')
+        else:
+            print(f'Found fingerprint at index #{recv.index} wit accuracy score of {recv.score}')
 
     except Exception as info:
         # Prints the error string
