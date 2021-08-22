@@ -1,5 +1,5 @@
 [tool.poetry]
-version = "0.1.0"
+version = "0.1.1"
 name = "fpsensor"
 license = "MIT"
 readme = "README.md"
@@ -22,11 +22,13 @@ classifiers = [
 test    = 'scripts.poetry:run_test'
 docs    = 'scripts.poetry:run_docs'
 html    = 'scripts.poetry:run_html'
+cover   = 'scripts.poetry:run_coverage'
+linter  = 'scripts.poetry:run_linter'
 version = 'scripts.poetry:run_version'
 
 [tool.poetry.dependencies]
-python = "^3.8"
-embutils = "^0.2.1"
+python = "^3.7"
+embutils = "^0.2.2"
 Pillow = "^8.3.0"
 
 [tool.poetry.dev-dependencies]
@@ -34,6 +36,8 @@ pytest = "^5.2"
 toml = "^0.10.2"
 Sphinx = "^4.0.2"
 sphinx-rtd-theme = "^0.5.2"
+coverage = "^5.5"
+pylint = "^2.10.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

@@ -172,12 +172,10 @@ class FpBaudrate(IntEnumMod):
         """
         if cls.has_value(value=value):
             return FpBaudrate(value)
-        else:
-            val = (value // 9600)
-            if cls.has_value(value=val):
-                return FpBaudrate(val)
-            else:
-                raise ValueError(f"Value {value} is not supported by the sensor.")
+        val = (value // 9600)
+        if cls.has_value(value=val):
+            return FpBaudrate(val)
+        raise ValueError(f"Value {value} is not supported by the sensor.")
 
 
 class FpSecurity(IntEnumMod):
@@ -221,12 +219,10 @@ class FpPacketSize(IntEnumMod):
         """
         if cls.has_value(value=value):
             return FpPacketSize(value)
-        else:
-            val = int(log2(value >> 5))
-            if cls.has_value(value=val):
-                return FpPacketSize(val)
-            else:
-                raise ValueError(f"Value {value} is not a compatible packet size.")
+        val = int(log2(value >> 5))
+        if cls.has_value(value=val):
+            return FpPacketSize(val)
+        raise ValueError(f"Value {value} is not a compatible packet size.")
 
 
 class FpParameterID(IntEnumMod):
@@ -246,12 +242,11 @@ class FpParameterID(IntEnumMod):
         """
         if self == self.BAUDRATE:
             return FpBaudrate
-        elif self == self.SECURITY:
+        if self == self.SECURITY:
             return FpSecurity
-        elif self == self.PACKET_SIZE:
+        if self == self.PACKET_SIZE:
             return FpPacketSize
-        else:
-            raise ValueError('Parameter type not implemented')
+        raise ValueError('Parameter type not implemented')
 
 
 # Data Structures ===============================

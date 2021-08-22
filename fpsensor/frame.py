@@ -196,7 +196,7 @@ class FpFrameHandler(FrameHandler):
             if len(self._recv) < FpFrame.LENGTH:
                 break
 
-            elif self._state == self.State.WAIT_HEAD:
+            if self._state == self.State.WAIT_HEAD:
                 # Find the header and set it as start
                 index = self._recv.find(to_bytes(value=FpFrame.HEADER, size=2))
                 if index == -1:
