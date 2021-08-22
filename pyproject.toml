@@ -26,7 +26,7 @@ version = 'scripts.poetry:run_version'
 
 [tool.poetry.dependencies]
 python = "^3.8"
-embutils = "^0.2.1"
+embutils = "^0.2.2"
 Pillow = "^8.3.0"
 
 [tool.poetry.dev-dependencies]
