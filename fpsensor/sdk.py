@@ -175,8 +175,7 @@ class FpSDK(SerialInterface):
         """
         if self.frame_stream.serial_device.is_open:
             return self.frame_stream.serial_device.serial.cts
-        else:
-            return False
+        return False
 
     @property
     def address(self) -> int:
@@ -421,15 +420,15 @@ class FpSDK(SerialInterface):
 
         # Populate image
         pixel = image.load()
-        w, h = image.size
-        aux = w // 2
-        for y in range(h):
-            off = aux * y
-            for x in range(aux):
-                idx  = 2 * x
-                byte = recv.data[off + x]
-                pixel[idx, y]       = (0x0F & (byte >> 4)) << 4
-                pixel[(idx + 1), y] = (0x0F & byte) << 4
+        width, height = image.size
+        aux = width // 2
+        for img_y in range(height):
+            off = aux * img_y
+            for img_x in range(aux):
+                idx  = 2 * img_x
+                byte = recv.data[off + img_x]
+                pixel[idx, img_y]       = (0x0F & (byte >> 4)) << 4
+                pixel[(idx + 1), img_y] = (0x0F & byte) << 4
         return FpResponseValue(succ=recv.succ, code=recv.code, value=image)
 
     def template_index(self) -> FpResponseValue:
@@ -732,11 +731,11 @@ class FpSDK(SerialInterface):
         pack = resp.packet[1:]
         if code == FpError.ERROR_PACKET_TRANSMISSION:
             raise self.Exception(message='Communication error!', code=code)
-        elif code == FpError.ERROR_ADDRESS:
+        if code == FpError.ERROR_ADDRESS:
             raise self.Exception(message='Sensor address is wrong!', code=code)
-        elif code == FpError.ERROR_PASSWORD:
+        if code == FpError.ERROR_PASSWORD:
             raise self.Exception(message='Sensor password is wrong!', code=code)
-        elif code == FpError.ERROR_PASSWORD_VERIFY:
+        if code == FpError.ERROR_PASSWORD_VERIFY:
             raise self.Exception(message='Password verification required!', code=code)
 
         # Wait for data if required
