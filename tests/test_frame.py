@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: ascii -*-
 """
-Test: Fingerprint sensor frame implementation capabilities:
+Test: Fingerprint sensor implementation capabilities:
 
 * Serialization
 * Deserialization
@@ -19,53 +19,53 @@ import unittest
 
 # Internal ======================================
 from fpsensor.api import FpPID
-from fpsensor.frame import FpFrame
+from fpsensor.packet import FpPacket
 
 
 # Definitions ===================================
 class Test(unittest.TestCase):
     """
-    Test basic frame operations.
+    Test basic packet operations.
     """
     def test_serialize(self):
         """
-        Check if the serialization of a frame is being done correctly.
+        Check if the serialization of a packet is being done correctly.
         """
-        # Create frame for image capture
+        # Create packet for image capture
         data = bytearray([0xEF, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0x01, 0x00, 0x03, 0x01, 0x00, 0x05])
-        frame = FpFrame(pid=FpPID.COMMAND, packet=bytearray([0x01]))
+        pack = FpPacket(pid=FpPID.COMMAND, packet=bytearray([0x01]))
 
         # Compare
-        assert frame.serialize() == data
+        assert pack.serialize() == data
 
     def test_deserialize(self):
         """
-        Check if the deserialization of a frame is being done correctly.
+        Check if the deserialization of a packet is being done correctly.
         """
         # Deserialize image capture
         data  = bytearray([0xEF, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0x01, 0x00, 0x03, 0x01, 0x00, 0x05])
-        frame = FpFrame.deserialize(data=data)
+        pack = FpPacket.deserialize(data=data)
 
         # Check
-        assert frame is not None
-        assert frame.serialize() == data
+        assert pack is not None
+        assert pack.serialize() == data
 
     def test_comparison(self):
         """
-        Check if the comparison of frames is being done correctly.
+        Check if the comparison of packets is being done correctly.
         """
-        # Create frames
-        frame_1 = FpFrame(pid=FpPID.COMMAND, packet=bytearray([0x07]))
-        frame_2 = FpFrame(pid=FpPID.COMMAND, packet=bytearray([0x07]))
-        frame_3 = FpFrame(pid=FpPID.ACK, packet=bytearray([0x08]))
+        # Create packets
+        pack_1 = FpPacket(pid=FpPID.COMMAND, packet=bytearray([0x07]))
+        pack_2 = FpPacket(pid=FpPID.COMMAND, packet=bytearray([0x07]))
+        pack_3 = FpPacket(pid=FpPID.ACK, packet=bytearray([0x08]))
 
         # Compare
-        assert frame_1 is not frame_2
-        assert frame_1 == frame_2
-        assert frame_1.serialize() == frame_2.serialize()
+        assert pack_1 is not pack_2
+        assert pack_1 == pack_2
+        assert pack_1.serialize() == pack_2.serialize()
 
-        assert frame_1 != frame_3
-        assert frame_1.serialize() != frame_3.serialize()
+        assert pack_1 != pack_3
+        assert pack_1.serialize() != pack_3.serialize()
 
 
 # Execution =====================================

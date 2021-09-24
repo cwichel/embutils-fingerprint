@@ -8,7 +8,7 @@ Submodules
    :maxdepth: 4
 
    fpsensor.api
-   fpsensor.frame
+   fpsensor.packet
    fpsensor.sdk
 
 Module contents

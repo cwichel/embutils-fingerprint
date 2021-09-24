@@ -14,15 +14,12 @@ Example: Fingerprint capture and enroll.
 
 # Internal ======================================
 from fpsensor.sdk import FpSDK
-from fpsensor.api import FpBaudrate, FpBufferID, ADDRESS, PASSWORD
+from fpsensor.api import FpBaudrate, FpBufferID
 
-from examples.ex_utils import wait_finger_action
+from examples.ex_utils import parse_args, wait_finger_action
 
 
 # Tunables ======================================
-FP_PORT = 'COM15'
-FP_ADDR = ADDRESS
-FP_PASS = PASSWORD
 
 
 # Definitions ===================================
@@ -31,7 +28,7 @@ def example(sdk: FpSDK):
         # Tries to initialize the sensor
         recv = sdk.password_verify()
         if not recv.succ:
-            raise sdk.Exception(message=f'Error when trying to communicate with the device', code=recv.code)
+            raise sdk.Error(message='Error when trying to communicate with the device', code=recv.code)
         sdk.backlight(enable=False)
 
         # Repeat this until both fingerprints are detected correctly
@@ -49,7 +46,7 @@ def example(sdk: FpSDK):
             if not recv.succ:
                 tries += 1
                 if tries >= 3:
-                    raise sdk.Exception(message=f'Unable to get a good image of the fingerprint', code=recv.code)
+                    raise sdk.Error(message='Unable to get a good image of the fingerprint', code=recv.code)
                 print(f'Error when converting fingerprint image ({str(recv.code)}). Try again!')
                 continue
             tries = 0
@@ -59,7 +56,7 @@ def example(sdk: FpSDK):
                 # Check that finger is not registered
                 recv = sdk.match_1_n(buffer=buffer)
                 if recv.index != -1:
-                    raise Exception(f'Finger already registered on index #{recv.index}')
+                    raise ValueError(f'Finger already registered on index #{recv.index}')
                 buffer = FpBufferID.BUFFER_2
 
             elif buffer == FpBufferID.BUFFER_2:
@@ -68,20 +65,20 @@ def example(sdk: FpSDK):
                 if not recv.succ:
                     tries += 1
                     if tries >= 3:
-                        raise Exception(f'Fingers didnt match several times')
-                    print(f'Fingers dont match. Try again!')
+                        raise RuntimeError('Fingers didnt match several times')
+                    print('Fingers dont match. Try again!')
                     continue
                 break
 
         # Generate template
         recv = sdk.template_create()
         if not recv.succ:
-            raise sdk.Exception(message=f'Template creation failed', code=recv.code)
+            raise sdk.Error(message='Template creation failed', code=recv.code)
 
         # Store the template
         recv = sdk.template_save(buffer=buffer)
         if not recv.succ:
-            raise sdk.Exception(message=f'Template store failed', code=recv.code)
+            raise sdk.Error(message='Template store failed', code=recv.code)
         print(f'Fingerprint stored successfully on index #{recv.value}')
 
     except Exception as info:
@@ -96,6 +93,7 @@ def example(sdk: FpSDK):
 # Execution =====================================
 if __name__ == '__main__':
     # Initialize the sensor and perform the example when gets connected
-    fp = FpSDK(port=FP_PORT, baudrate=FpBaudrate.BAUDRATE_57600, address=FP_ADDR, password=FP_PASS)
-    fp.on_port_reconnect += lambda: example(sdk=fp)
+    port, addr, passwd = parse_args()
+    fp = FpSDK(port=port, baudrate=FpBaudrate.BAUDRATE_57600, address=addr, password=passwd)
+    fp.on_connect += lambda: example(sdk=fp)
     fp.join()

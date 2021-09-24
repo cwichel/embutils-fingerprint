@@ -14,13 +14,12 @@ Example: Fingerprint template deletion from device database.
 
 # Internal ======================================
 from fpsensor.sdk import FpSDK
-from fpsensor.api import FpBaudrate, ADDRESS, PASSWORD
+from fpsensor.api import FpBaudrate
+
+from examples.ex_utils import parse_args
 
 
 # Tunables ======================================
-FP_PORT = 'COM15'
-FP_ADDR = ADDRESS
-FP_PASS = PASSWORD
 
 
 # Definitions ===================================
@@ -29,17 +28,17 @@ def example(sdk: FpSDK):
         # Tries to initialize the sensor
         recv = sdk.password_verify()
         if not recv.succ:
-            raise sdk.Exception(message=f'Error when trying to communicate with the device', code=recv.code)
+            raise sdk.Error(message='Error when trying to communicate with the device', code=recv.code)
         sdk.backlight(enable=False)
 
         # Ask the user for the template to delete
-        index = int(input(f'Please enter the index of the template to be deleted: '))
+        index = int(input('Please enter the index of the template to be deleted: '))
 
         # Tries to delete the requested template
         recv = sdk.template_delete(index=index, count=1)
         if not recv.succ:
-            raise sdk.Exception(message=f'Operation failed', code=recv.code)
-        print(f'Template deleted!')
+            raise sdk.Error(message='Operation failed', code=recv.code)
+        print('Template deleted!')
 
     except Exception as info:
         # Prints the error string
@@ -53,6 +52,7 @@ def example(sdk: FpSDK):
 # Execution =====================================
 if __name__ == '__main__':
     # Initialize the sensor and perform the example when gets connected
-    fp = FpSDK(port=FP_PORT, baudrate=FpBaudrate.BAUDRATE_57600, address=FP_ADDR, password=FP_PASS)
-    fp.on_port_reconnect += lambda: example(sdk=fp)
+    port, addr, passwd = parse_args()
+    fp = FpSDK(port=port, baudrate=FpBaudrate.BAUDRATE_57600, address=addr, password=passwd)
+    fp.on_connect += lambda: example(sdk=fp)
     fp.join()
