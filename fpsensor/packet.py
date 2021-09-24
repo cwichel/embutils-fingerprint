@@ -172,8 +172,6 @@ class FpStreamFramingCodec(AbstractSerializedStreamCodec):
         recv = device.read(size=device.serial.in_waiting) if device.is_open else None
         if recv is None:
             raise ConnectionError(f"Connection error while reading from {device}")
-        if len(recv) == 0:
-            return None
 
         # Process received bytes
         self._recv.extend(recv)
@@ -219,5 +217,5 @@ class FpStreamFramingCodec(AbstractSerializedStreamCodec):
         """
         Restarts the packet handler state machine.
         """
-        self._state = self.State.WAIT_BASE
+        self._state = self.State.WAIT_HEAD
         self._count = 0

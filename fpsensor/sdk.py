@@ -69,7 +69,7 @@ class FpSDK(Interface):
 
     """
     #: Default response timeout
-    RESPONSE_TIMEOUT_S  = 5.0
+    TIMEOUT_RESPONSE_S  = 5.0
 
     #: Default finger detection
     DETECTION_PERIOD    = 0.3
@@ -711,7 +711,7 @@ class FpSDK(Interface):
         # Wait for data if required
         if data_wait:
             time_start = time.time()
-            while not data_ok and (time_elapsed(start=time_start) < self.RESPONSE_TIMEOUT_S):
+            while not data_ok and (time_elapsed(start=time_start) < self._timeout):
                 time.sleep(0.01)
             self.on_received -= wait_data_logic
             if not data_ok:
