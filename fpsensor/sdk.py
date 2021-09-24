@@ -72,7 +72,7 @@ class FpSDK(Interface):
     TIMEOUT_RESPONSE_S  = 5.0
 
     #: Default finger detection
-    DETECTION_PERIOD    = 0.3
+    PERIOD_DETECTION    = 0.3
 
     #: Default serial device settings
     SERIAL_SETTINGS = {
@@ -135,7 +135,7 @@ class FpSDK(Interface):
         # Detector specific
         self._df_state     = False
         self._df_is_active = True
-        self._df_period    = self.DETECTION_PERIOD
+        self._df_period    = self.PERIOD_DETECTION
         self._df_finished  = False
         SDK_TP.enqueue(task=SimpleThreadTask(
             name=f'{self.__class__.__name__}.detector_process',
