@@ -132,10 +132,12 @@ class FpSDK(Interface):
         # Initialize serial interface
         super(FpSDK, self).__init__(codec=FpStreamFramingCodec(), port=port, looped=looped)
 
-        self._state     = False
-        self._is_active = True
-        self._period    = self.DETECTION_PERIOD
-        self._detector  = SDK_TP.enqueue(task=SimpleThreadTask(
+        # Detector specific
+        self._df_state     = False
+        self._df_is_active = True
+        self._df_period    = self.DETECTION_PERIOD
+        self._df_finished  = False
+        SDK_TP.enqueue(task=SimpleThreadTask(
             name=f'{self.__class__.__name__}.detector_process',
             task=self._detector_process
             ))
@@ -145,8 +147,8 @@ class FpSDK(Interface):
         Stops the stream process.
         """
         # Stop detector
-        self._is_active = False
-        while self._detector.is_alive():
+        self._df_is_active = False
+        while not self._df_finished:
             time.sleep(0.01)
         # Stop serial
         super().stop()
@@ -156,7 +158,7 @@ class FpSDK(Interface):
         """
         Finger detection period.
         """
-        return self._period
+        return self._df_period
 
     @period.setter
     def period(self, value: float) -> None:
@@ -165,7 +167,7 @@ class FpSDK(Interface):
         """
         if value <= 0.0:
             raise ValueError('The detection period needs to be greater than zero.')
-        self._period = value
+        self._df_period = value
 
     @property
     def finger_pressed(self) -> bool:
@@ -627,20 +629,29 @@ class FpSDK(Interface):
         Pulls periodically the state of the TOUT signal connected to CTS. If the finger is detected then an event is
         emitted.
         """
-        time_start = time.time()
-        while self._is_active:
-            if time_elapsed(start=time_start) > self._period:
+        # Do this periodically
+        while self._df_is_active:
+            # Only execute core if device IS connected...
+            if self.stream.device.is_open:
                 state = self.stream.device.serial.cts
-                if state != self._state:
-                    self._state = state
-                    if self._state:
-                        SDK_LOG.info(f'Finger pressed sensor!')
-                        self.on_finger_pressed.emit()
+                if state != self._df_state:
+                    self._df_state = state
+                    if self._df_state:
+                        SDK_LOG.info('Finger pressed sensor!')
+                        SDK_TP.enqueue(task=SimpleThreadTask(
+                            name=f'{self.__class__.__name__}.on_finger_pressed',
+                            task=self.on_finger_pressed.emit
+                            ))
                     else:
-                        SDK_LOG.info(f'Finger released sensor!')
-                        self.on_finger_released.emit()
-                time_start = time.time()
-            time.sleep(0.01)
+                        SDK_LOG.info('Finger released sensor!')
+                        SDK_TP.enqueue(task=SimpleThreadTask(
+                            name=f'{self.__class__.__name__}.on_finger_released',
+                            task=self.on_finger_released.emit
+                            ))
+            time.sleep(self._df_period)
+
+        # Inform finished
+        self._df_finished = True
 
     def _command_get(self,
                      command: FpCommand, packet: bytearray = bytearray(),
