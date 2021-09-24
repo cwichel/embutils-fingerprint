@@ -11,10 +11,10 @@ Fingerprint API definitions.
 
 # External ======================================
 from dataclasses import dataclass
-from embutils.utils import IntEnumMod, Serialized
+from embutils.utils import IntEnum, AbstractSerialized
 from math import log2
 from PIL import Image
-from typing import Type, Union
+from typing import Optional, Type, Union
 
 
 # Internal ======================================
@@ -27,7 +27,7 @@ NOTEPAD_SIZE    = 32                # Notepad size : 32 bytes per page
 NOTEPAD_COUNT   = 16                # Notepad count: 16 pages
 
 
-class FpPID(IntEnumMod):
+class FpPID(IntEnum):
     """
     Fingerprint packet IDs.
     """
@@ -37,7 +37,7 @@ class FpPID(IntEnumMod):
     END_OF_DATA = 0x08          # End of data
 
 
-class FpCommand(IntEnumMod):
+class FpCommand(IntEnum):
     """
     Fingerprint command IDs.
     """
@@ -78,7 +78,7 @@ class FpCommand(IntEnumMod):
     BACKLIGHT_OFF           = 0x51
 
 
-class FpError(IntEnumMod):
+class FpError(IntEnum):
     """
     Fingerprint error IDs.
     """
@@ -126,7 +126,7 @@ class FpError(IntEnumMod):
     ERROR_TIMEOUT                       = 0xFF
 
 
-class FpBufferID(IntEnumMod):
+class FpBufferID(IntEnum):
     """
     Fingerprint buffer IDs.
     """
@@ -134,7 +134,7 @@ class FpBufferID(IntEnumMod):
     BUFFER_2    = 0x02
 
 
-class FpBaudrate(IntEnumMod):
+class FpBaudrate(IntEnum):
     """
     Fingerprint compatible baudrate.
     """
@@ -178,7 +178,7 @@ class FpBaudrate(IntEnumMod):
         raise ValueError(f"Value {value} is not supported by the sensor.")
 
 
-class FpSecurity(IntEnumMod):
+class FpSecurity(IntEnum):
     """
     Fingerprint security levels.
     """
@@ -189,7 +189,7 @@ class FpSecurity(IntEnumMod):
     SECURITY_LVL5   = 0x05
 
 
-class FpPacketSize(IntEnumMod):
+class FpPacketSize(IntEnum):
     """
     Fingerprint packet sizes.
     """
@@ -225,7 +225,7 @@ class FpPacketSize(IntEnumMod):
         raise ValueError(f"Value {value} is not a compatible packet size.")
 
 
-class FpParameterID(IntEnumMod):
+class FpParameterID(IntEnum):
     """
     Fingerprint editable parameters.
     """
@@ -251,7 +251,7 @@ class FpParameterID(IntEnumMod):
 
 # Data Structures ===============================
 @dataclass
-class FpSystemParameters(Serialized):
+class FpSystemParameters(AbstractSerialized):
     """
     Fingerprint system parameters structure definition.
 
@@ -267,15 +267,26 @@ class FpSystemParameters(Serialized):
         5: Pack. Size   : 2 byte MSB    : 12 - 13
         6: Baudrate     : 2 byte MSB    : 14 - 15
 
-    """
-    LENGTH = 16
+    .. note::
+        * Size: `16`
 
+    """
+    #: Minimum packet size
+    SIZE_MIN = 16
+
+    #: Device Status
     status:     int
+    #: Device ID
     id:         int
+    #: Device address
     address:    int
+    #: Database capacity
     capacity:   int
+    #: Packet size
     packet:     FpPacketSize
+    #: Security level
     security:   FpSecurity
+    #: System baudrate
     baudrate:   FpBaudrate
 
     def __repr__(self):
@@ -291,10 +302,7 @@ class FpSystemParameters(Serialized):
 
     def serialize(self) -> bytearray:
         """
-        Converts the parameters into a byte array.
-
-        :return: Serialized frame.
-        :rtype: bytearray
+        Convert the packet into a byte array.
         """
         return bytearray(
             to_bytes(value=self.status, size=2) +
@@ -306,8 +314,8 @@ class FpSystemParameters(Serialized):
             to_bytes(value=self.baudrate, size=2)
             )
 
-    @staticmethod
-    def deserialize(data: bytearray) -> Union[None, 'FpSystemParameters']:
+    @classmethod
+    def deserialize(cls, data: bytearray) -> Optional['FpSystemParameters']:
         """
         Parses the parameters from a byte array.
 
@@ -317,7 +325,7 @@ class FpSystemParameters(Serialized):
         :rtype: FpSystemParameters
         """
         # Check data size
-        if len(data) < FpSystemParameters.LENGTH:
+        if len(data) < cls.SIZE_MIN:
             return None
 
         # Parse data

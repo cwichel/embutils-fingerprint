@@ -14,15 +14,12 @@ Example: Fingerprint capture and database search.
 
 # Internal ======================================
 from fpsensor.sdk import FpSDK
-from fpsensor.api import FpBaudrate, FpBufferID, ADDRESS, PASSWORD
+from fpsensor.api import FpBaudrate, FpBufferID
 
-from examples.ex_utils import wait_finger_action
+from examples.ex_utils import parse_args, wait_finger_action
 
 
 # Tunables ======================================
-FP_PORT = 'COM15'
-FP_ADDR = ADDRESS
-FP_PASS = PASSWORD
 
 
 # Definitions ===================================
@@ -31,7 +28,7 @@ def example(sdk: FpSDK):
         # Tries to initialize the sensor
         recv = sdk.password_verify()
         if not recv.succ:
-            raise sdk.Exception(message=f'Error when trying to communicate with the device', code=recv.code)
+            raise sdk.Error(message='Error when trying to communicate with the device', code=recv.code)
         sdk.backlight(enable=False)
 
         # Repeat this until the image is detected correctly
@@ -51,13 +48,13 @@ def example(sdk: FpSDK):
                     print(f'Error when converting fingerprint image ({str(recv.code)}). Try again!')
                     continue
                 else:
-                    raise sdk.Exception(message=f'Unable to get a good image of the fingerprint', code=recv.code)
+                    raise sdk.Error(message='Unable to get a good image of the fingerprint', code=recv.code)
             break
 
         # Execute search
         recv = sdk.match_1_n(buffer=FpBufferID.BUFFER_1)
         if recv.index == -1:
-            print(f'Fingerprint not found in database!')
+            print('Fingerprint not found in database!')
         else:
             print(f'Found fingerprint at index #{recv.index} wit accuracy score of {recv.score}')
 
@@ -73,6 +70,7 @@ def example(sdk: FpSDK):
 # Execution =====================================
 if __name__ == '__main__':
     # Initialize the sensor and perform the example when gets connected
-    fp = FpSDK(port=FP_PORT, baudrate=FpBaudrate.BAUDRATE_57600, address=FP_ADDR, password=FP_PASS)
-    fp.on_port_reconnect += lambda: example(sdk=fp)
+    port, addr, passwd = parse_args()
+    fp = FpSDK(port=port, baudrate=FpBaudrate.BAUDRATE_57600, address=addr, password=passwd)
+    fp.on_connect += lambda: example(sdk=fp)
     fp.join()
