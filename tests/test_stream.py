@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # -*- coding: ascii -*-
 """
-Test: Fingerprint sensor frame stream capabilities:
+Test: Fingerprint sensor stream capabilities:
 
-* Send, receive and process a frame.
+* Send, receive and process a packet.
 
 @date:      2021
 @author:    Christian Wiche
@@ -14,40 +14,43 @@ Test: Fingerprint sensor frame stream capabilities:
 # External ======================================
 import time
 import unittest
-from embutils.serial.core import SerialDevice, FrameStream
-from embutils.utils import UsbID, LOG_SDK
+from embutils.serial import Device, Stream
+from embutils.utils import SDK_LOG
 
 # Internal ======================================
 from fpsensor.api import FpPID
-from fpsensor.frame import FpFrame, FpFrameHandler
+from fpsensor.packet import FpPacket, FpStreamFramingCodec
 
 
 # Definitions ===================================
-LOG_SDK.enable()
+SDK_LOG.enable()
 
 
 # Definitions ===================================
 class Test(unittest.TestCase):
     """
-    Test basic frame streaming.
+    Test basic packet streaming.
     """
     def test_send_and_receive(self):
         """
-        Send and receive a frame using the frame stream and check if frames are the same.
+        Send and receive a packet using the stream and check if data is the same.
         """
-        frame = FpFrame(pid=FpPID.COMMAND, packet=bytearray([0x01]))
-        self.send_and_receive(send=frame, handler=FpFrameHandler())
+        pack = FpPacket(pid=FpPID.COMMAND, packet=bytearray([0x01]))
+        self.send_and_receive(send=pack, codec=FpStreamFramingCodec())
 
     @staticmethod
-    def send_and_receive(send: FpFrame, handler: FpFrameHandler) -> None:
-        """S
+    def send_and_receive(send: FpPacket, codec: FpStreamFramingCodec) -> None:
+        """
         Simulates a serial device on loop mode and performs a comparison between the data being sent/received.
         """
         # Stop flag
         is_ready = False
 
-        # Manage frame reception
-        def on_frame_received(recv: FpFrame):
+        # Manage packet reception
+        def on_connected():
+            fs.send(item=send)
+
+        def on_received(recv: FpPacket):
             nonlocal send, is_ready
 
             assert recv is not None
@@ -55,14 +58,11 @@ class Test(unittest.TestCase):
 
             is_ready = True
 
-        # Initialize frame stream
-        fh = handler
-        sd = SerialDevice(usb_id=UsbID(vid=0x1234, pid=0x5678), looped=True)
-        fs = FrameStream(serial_device=sd, frame_handler=fh)
-        fs.on_frame_received += lambda frame: on_frame_received(recv=frame)
-
-        # Send frame
-        fs.send_frame(frame=send)
+        # Initialize stream
+        sd = Device(looped=True)
+        fs = Stream(device=sd, codec=codec)
+        fs.on_connect   += on_connected
+        fs.on_received  += lambda item: on_received(recv=item)
 
         # Maintain alive the process
         while not is_ready:
