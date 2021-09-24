@@ -14,7 +14,7 @@ import time
 from embutils.serial import Interface
 from embutils.utils import SDK_LOG, SDK_TP, EventHook, SimpleThreadTask, time_elapsed
 from PIL import Image
-from typing import Union
+from typing import Optional, Union
 
 # Internal ======================================
 from .api import (
@@ -124,7 +124,7 @@ class FpSDK(Interface):
         self._pass = self._auth_check(value=password)
 
         # Adjust baudrate
-        SDK_LOG.info(f'Formatting baudrate...')
+        SDK_LOG.info('Formatting baudrate...')
         baudrate = FpBaudrate.from_int(value=baudrate)
         self.SERIAL_SETTINGS['baudrate'] = baudrate.to_int()
         SDK_LOG.info(f'Using: {str(baudrate)}')
@@ -194,7 +194,7 @@ class FpSDK(Interface):
         if recv.succ:
             self._addr = value
         else:
-            raise self.Error(code=recv.code, message=f'Unable to set device address.')
+            raise self.Error(code=recv.code, message='Unable to set device address.')
 
     @property
     def password(self) -> int:
@@ -212,7 +212,7 @@ class FpSDK(Interface):
         if recv.succ:
             self._pass = value
         else:
-            raise self.Error(code=recv.code, message=f'Unable to set device password.')
+            raise self.Error(code=recv.code, message='Unable to set device password.')
 
     @property
     def count(self) -> int:
@@ -222,7 +222,7 @@ class FpSDK(Interface):
         recv = self._command_get(command=FpCommand.TEMPLATE_COUNT)
         if recv.succ:
             return from_bytes(data=recv.pack[0:2])
-        raise self.Error(code=recv.code, message=f'Unable to get device usage.')
+        raise self.Error(code=recv.code, message='Unable to get device usage.')
 
     @property
     def capacity(self) -> int:
@@ -234,7 +234,7 @@ class FpSDK(Interface):
             if recv.succ:
                 self._caps = recv.value.capacity
             else:
-                raise self.Error(code=recv.code, message=f'Unable to get device capacity.')
+                raise self.Error(code=recv.code, message='Unable to get device capacity.')
         return self._caps
 
     @property
@@ -245,7 +245,7 @@ class FpSDK(Interface):
         recv = self.parameters_get()
         if recv.succ:
             return recv.value.baudrate
-        raise self.Error(code=recv.code, message=f'Unable to get device baudrate.')
+        raise self.Error(code=recv.code, message='Unable to get device baudrate.')
 
     @baudrate.setter
     def baudrate(self, value: Union[int, FpBaudrate]) -> None:
@@ -264,7 +264,7 @@ class FpSDK(Interface):
         recv = self.parameters_get()
         if recv.succ:
             return recv.value.security
-        raise self.Error(code=recv.code, message=f'Unable to get device security.')
+        raise self.Error(code=recv.code, message='Unable to get device security.')
 
     @security.setter
     def security(self, value: Union[int, FpSecurity]) -> None:
@@ -283,7 +283,7 @@ class FpSDK(Interface):
         recv  = self.parameters_get()
         if recv.succ:
             return recv.value.packet
-        raise self.Error(code=recv.code, message=f'Unable to get packet size.')
+        raise self.Error(code=recv.code, message='Unable to get packet size.')
 
     @packet_size.setter
     def packet_size(self, value: Union[int, FpPacketSize]) -> None:
@@ -401,7 +401,7 @@ class FpSDK(Interface):
                 pixel[(idx + 1), img_y] = (0x0F & byte) << 4
         return FpResponseValue(succ=recv.succ, code=recv.code, value=image)
 
-    def template_index(self) -> FpResponseValue:
+    def template_index(self) -> Optional[FpResponseValue]:
         """
         Returns a list with the occupied indexes on the sensor database.
 
@@ -422,6 +422,7 @@ class FpSDK(Interface):
                     count += 1
                     if count == self.capacity:
                         return FpResponseValue(succ=recv.succ, code=recv.code, value=index)
+        return None
 
     def template_create(self) -> FpResponseSet:
         """
@@ -554,7 +555,7 @@ class FpSDK(Interface):
         if not FpBufferID.has_value(value=buffer):
             raise ValueError(f'{FpBufferID.__name__} value not supported: {buffer}')
         if not data:
-            raise ValueError(f'Data is empty')
+            raise ValueError('Data is empty')
 
         # Send
         recv = self._command_set(command=FpCommand.TEMPLATE_UPLOAD, data=data)
@@ -714,10 +715,10 @@ class FpSDK(Interface):
                 time.sleep(0.01)
             self.on_received -= wait_data_logic
             if not data_ok:
-                raise self.Error(f'Timeout while waiting for data.', code=FpError.ERROR_TIMEOUT)
+                raise self.Error('Timeout while waiting for data.', code=FpError.ERROR_TIMEOUT)
 
         # Check and return
-        succ = (code == FpError.SUCCESS) or (code == FpError.HANDSHAKE_SUCCESS)
+        succ = code in [FpError.SUCCESS, FpError.HANDSHAKE_SUCCESS]
         return FpResponseGet(succ=succ, code=code, pack=pack, data=data_buff)
 
     def _command_set(self,
@@ -770,7 +771,7 @@ class FpSDK(Interface):
         """
         if index is None:
             if self.count >= self.capacity:
-                raise self.Error(message=f'No space available on database', code=FpError.ERROR_DATABASE_FULL)
+                raise self.Error(message='No space available on database', code=FpError.ERROR_DATABASE_FULL)
             index = self.template_index().value.find(0x00)
 
         if index < 0 or index >= self.capacity:
@@ -810,7 +811,7 @@ class FpSDK(Interface):
         _type = param.get_type()
         try:
             value = _type.from_int(value=value)
-        except ValueError:
+        except ValueError as _:
             raise ValueError(f'{_type.__name__} value not supported: {value}')
 
         # Perform operation
@@ -854,6 +855,6 @@ class FpSDK(Interface):
 
         :raise ValueError: Raise if value is not in valid range.
         """
-        if value < 0x00000000 or 0xFFFFFFFF < value:
+        if value < 0x00000000 or value > 0xFFFFFFFF:
             raise ValueError(f'Value out of range (0x00000000 < 0x{value:08X} < 0xFFFFFFFF)!')
         return value
