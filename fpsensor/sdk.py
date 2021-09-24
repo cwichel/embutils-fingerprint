@@ -11,8 +11,8 @@ Fingerprint SDK implementation.
 
 # External ======================================
 import time
-from embutils.serial.core import SerialInterface
-from embutils.utils import time_elapsed, LOG_SDK, EventHook, ThreadItem
+from embutils.serial import Interface
+from embutils.utils import SDK_LOG, SDK_TP, EventHook, SimpleThreadTask, time_elapsed
 from PIL import Image
 from typing import Union
 
@@ -24,33 +24,36 @@ from .api import (
     FpResponseSet, FpResponseGet, FpResponseMatch, FpResponseValue,
     to_bytes, from_bytes
     )
-from .frame import FpFrame, FpFrameHandler
+from .packet import FpPacket, FpStreamFramingCodec
 
 # Definitions ===================================
-logger_sdk = LOG_SDK.logger
 
 
 # Data Structures ===============================
-class FpSDK(SerialInterface):
+class FpSDK(Interface):
     """
     Fingerprint command interface implementation.
 
     Available events:
 
-    #.  **on_frame_received:** This event is emitted when a frame is received
-        and deserialized from the serial device. Subscribe using callbacks with
+    #.  **on_received:** This event is emitted when an object is received and
+        deserialized from the serial device. Subscribe using callbacks with
         syntax::
 
-            def <callback>(frame: Frame)
+            def <callback>(item: AbstractSerialized)
 
-    #.  **on_port_reconnect:** This event is emitted when the system is able to
-        reconnect to the configured port. Subscribe using callbacks with syntax::
+    #.  **on_connect:** This event is emitted when the system is able to
+        connect to the device. Subscribe using callbacks with syntax::
 
             def <callback>()
 
-    #.  **on_port_disconnect:** This event is emitted when the system gets
-        disconnected from the configured serial port. Subscribe using callbacks
-        with syntax::
+    #.  **on_reconnect:** This event is emitted when the system is able to
+        reconnect to the device. Subscribe using callbacks with syntax::
+
+            def <callback>()
+
+    #.  **on_disconnect:** This event is emitted when the system gets
+        disconnected from the device. Subscribe using callbacks with syntax::
 
             def <callback>()
 
@@ -80,9 +83,9 @@ class FpSDK(SerialInterface):
         'timeout':  0.1
         }
 
-    class Exception(Exception):
+    class Error(Exception):
         """
-        Exception raised when an error handling the fingerprint is detected.
+        Issue appeared when handling the fingerprint device.
         """
         def __init__(self, message: str, code: FpError) -> None:
             """
@@ -92,7 +95,7 @@ class FpSDK(SerialInterface):
             :param FpError code: Error code.
             """
             self.error = code
-            super(FpSDK.Exception, self).__init__(f'{str(code)}: {message}')
+            super(FpSDK.Error, self).__init__(f'{str(code)}: {message}')
 
     def __init__(self,
                  address: int = ADDRESS, password: int = PASSWORD,
@@ -109,33 +112,37 @@ class FpSDK(SerialInterface):
 
         :raise ValueError: Raise if address or password values are not in a valid range.
         """
+        # Public events
+        self.on_finger_pressed  = EventHook()
+        self.on_finger_released = EventHook()
+
         # Initialize static data
         self._caps = None
 
         # Check address and password
-        self._addr = self._value_check(value=address)
-        self._pass = self._value_check(value=password)
+        self._addr = self._auth_check(value=address)
+        self._pass = self._auth_check(value=password)
 
         # Adjust baudrate
-        logger_sdk.info(f'Formatting baudrate...')
+        SDK_LOG.info(f'Formatting baudrate...')
         baudrate = FpBaudrate.from_int(value=baudrate)
         self.SERIAL_SETTINGS['baudrate'] = baudrate.to_int()
-        logger_sdk.info(f'Using: {str(baudrate)}')
+        SDK_LOG.info(f'Using: {str(baudrate)}')
 
         # Initialize serial interface
-        super(FpSDK, self).__init__(frame_handler=FpFrameHandler(), port=port, looped=looped)
+        super(FpSDK, self).__init__(codec=FpStreamFramingCodec(), port=port, looped=looped)
 
-        # Set finger detection
-        self.on_finger_pressed  = EventHook()
-        self.on_finger_released = EventHook()
         self._state     = False
         self._is_active = True
         self._period    = self.DETECTION_PERIOD
-        self._detector  = ThreadItem(name=f'{self.__class__.__name__}.detector_process', target=self._detector_process)
+        self._detector  = SDK_TP.enqueue(task=SimpleThreadTask(
+            name=f'{self.__class__.__name__}.detector_process',
+            task=self._detector_process
+            ))
 
     def stop(self) -> None:
         """
-        Stops the frame stream process.
+        Stops the stream process.
         """
         # Stop detector
         self._is_active = False
@@ -148,18 +155,13 @@ class FpSDK(SerialInterface):
     def period(self) -> float:
         """
         Finger detection period.
-
-        :returns: Period in seconds.
-        :rtype: float
         """
         return self._period
 
     @period.setter
     def period(self, value: float) -> None:
         """
-        Set the finger detection period.
-
-        :param float value: Detection period in seconds.
+        Finger detection period setter.
         """
         if value <= 0.0:
             raise ValueError('The detection period needs to be greater than zero.')
@@ -168,161 +170,127 @@ class FpSDK(SerialInterface):
     @property
     def finger_pressed(self) -> bool:
         """
-        Check if the finger is currently pressing the sensor.
-
-        :return: True if finger on sensor, false otherwise.
-        :rtype: bool
+        Returns if the finger is currently pressing the sensor.
         """
-        if self.frame_stream.serial_device.is_open:
-            return self.frame_stream.serial_device.serial.cts
+        if self.stream.device.is_open:
+            return self.stream.device.serial.cts
         return False
 
     @property
     def address(self) -> int:
         """
         Device address.
-
-        :return: Address.
-        :rtype: int
         """
         return self._addr
 
     @address.setter
     def address(self, value: int) -> None:
         """
-        Set device address.
-
-        :param int value: Address.
+        Device address setter.
         """
         recv = self._value_set(command=FpCommand.ADDRESS_SET, value=value)
         if recv.succ:
             self._addr = value
         else:
-            raise self.Exception(code=recv.code, message=f'Unable to set device address.')
+            raise self.Error(code=recv.code, message=f'Unable to set device address.')
 
     @property
     def password(self) -> int:
         """
         Device password.
-
-        :return: Password.
-        :rtype: int
         """
         return self._pass
 
     @password.setter
     def password(self, value: int) -> None:
         """
-        Set device password.
-
-        :param int value: Password.
+        Device password setter.
         """
         recv = self._value_set(command=FpCommand.PASSWORD_SET, value=value)
         if recv.succ:
             self._pass = value
         else:
-            raise self.Exception(code=recv.code, message=f'Unable to set device password.')
+            raise self.Error(code=recv.code, message=f'Unable to set device password.')
 
     @property
     def count(self) -> int:
         """
         Number of slots being used on the device database.
-
-        :return: Database slots being used.
-        :rtype: int
         """
         recv = self._command_get(command=FpCommand.TEMPLATE_COUNT)
         if recv.succ:
             return from_bytes(data=recv.pack[0:2])
-        raise self.Exception(code=recv.code, message=f'Unable to get device usage.')
+        raise self.Error(code=recv.code, message=f'Unable to get device usage.')
 
     @property
     def capacity(self) -> int:
         """
         Number of slots on the device database.
-
-        :return: Database capacity.
-        :rtype: int
         """
         if self._caps is None:
             recv = self.parameters_get()
             if recv.succ:
                 self._caps = recv.value.capacity
             else:
-                raise self.Exception(code=recv.code, message=f'Unable to get device capacity.')
+                raise self.Error(code=recv.code, message=f'Unable to get device capacity.')
         return self._caps
 
     @property
     def baudrate(self) -> FpBaudrate:
         """
         Device baudrate.
-
-        :return: Baudrate.
-        :rtype: FpBaudrate
         """
         recv = self.parameters_get()
         if recv.succ:
             return recv.value.baudrate
-        raise self.Exception(code=recv.code, message=f'Unable to get device baudrate.')
+        raise self.Error(code=recv.code, message=f'Unable to get device baudrate.')
 
     @baudrate.setter
     def baudrate(self, value: Union[int, FpBaudrate]) -> None:
         """
-        Set device baudrate.
-
-        :param Union[int, FpBaudrate] value: Baudrate.
+        Device baudrate setter.
         """
         recv = self._parameter_set(param=FpParameterID.BAUDRATE, value=value)
         if not recv.succ:
-            raise self.Exception(code=recv.code, message=f'Unable to set baudrate ({FpBaudrate(value)}).')
+            raise self.Error(code=recv.code, message=f'Unable to set baudrate ({FpBaudrate(value)}).')
 
     @property
     def security(self) -> FpSecurity:
         """
         Device security level.
-
-        :return: Security level.
-        :rtype: FpSecurity
         """
         recv = self.parameters_get()
         if recv.succ:
             return recv.value.security
-        raise self.Exception(code=recv.code, message=f'Unable to get device security.')
+        raise self.Error(code=recv.code, message=f'Unable to get device security.')
 
     @security.setter
     def security(self, value: Union[int, FpSecurity]) -> None:
         """
-        Set device security level.
-
-        :param Union[int, FpSecurity] value: Security level.
+        Device security level setter.
         """
         recv = self._parameter_set(param=FpParameterID.SECURITY, value=value)
         if not recv.succ:
-            raise self.Exception(code=recv.code, message=f'Unable to set security ({FpSecurity(value)}).')
+            raise self.Error(code=recv.code, message=f'Unable to set security ({FpSecurity(value)}).')
 
     @property
     def packet_size(self) -> FpPacketSize:
         """
         Device packet size.
-
-        :return: Packet size.
-        :rtype: FpPacketSize
         """
         recv  = self.parameters_get()
         if recv.succ:
             return recv.value.packet
-        raise self.Exception(code=recv.code, message=f'Unable to get packet size.')
+        raise self.Error(code=recv.code, message=f'Unable to get packet size.')
 
     @packet_size.setter
     def packet_size(self, value: Union[int, FpPacketSize]) -> None:
         """
-        Set device packet size.
-
-        :param Union[int, FpPacketSize] value: Packet size.
+        Device packet size setter.
         """
         recv = self._parameter_set(param=FpParameterID.PACKET_SIZE, value=value)
         if not recv.succ:
-            raise self.Exception(code=recv.code, message=f'Unable to set packet size ({FpPacketSize(value)}).')
+            raise self.Error(code=recv.code, message=f'Unable to set packet size ({FpPacketSize(value)}).')
 
     def handshake(self) -> FpResponseSet:
         """
@@ -361,7 +329,7 @@ class FpSDK(SerialInterface):
         if password is None:
             password = self._pass
 
-        password = to_bytes(value=self._value_check(value=password), size=4)
+        password = to_bytes(value=self._auth_check(value=password), size=4)
         return self._command_set(command=FpCommand.PASSWORD_VERIFY, packet=password)
 
     def parameters_get(self) -> FpResponseValue:
@@ -627,7 +595,7 @@ class FpSDK(SerialInterface):
         if page < 0 or page >= NOTEPAD_COUNT:
             raise ValueError(f'Notepad page out of range: {0} <= {page} < {NOTEPAD_COUNT}')
         if len(data) > NOTEPAD_SIZE:
-            logger_sdk.info(f'Cropping data to match the notepad page size: {len(data)} cropped to {NOTEPAD_SIZE}')
+            SDK_LOG.info(f'Cropping data to match the notepad page size: {len(data)} cropped to {NOTEPAD_SIZE}')
             data = data[:NOTEPAD_SIZE]
 
         pack = bytearray([page]) + data
@@ -662,14 +630,14 @@ class FpSDK(SerialInterface):
         time_start = time.time()
         while self._is_active:
             if time_elapsed(start=time_start) > self._period:
-                state = self.frame_stream.serial_device.serial.cts
+                state = self.stream.device.serial.cts
                 if state != self._state:
                     self._state = state
                     if self._state:
-                        logger_sdk.info(f'Finger pressed sensor!')
+                        SDK_LOG.info(f'Finger pressed sensor!')
                         self.on_finger_pressed.emit()
                     else:
-                        logger_sdk.info(f'Finger released sensor!')
+                        SDK_LOG.info(f'Finger released sensor!')
                         self.on_finger_released.emit()
                 time_start = time.time()
             time.sleep(0.01)
@@ -690,62 +658,52 @@ class FpSDK(SerialInterface):
         """
         data_ok = False
         data_buff = bytearray()
-        time_start = time.time()
 
-        def wait_ack_logic(sent: FpFrame, recv: FpFrame):
-            """Wait for ACK. If waiting for data, enable reception process.
+        def wait_ack_logic(item: FpPacket) -> bool:
             """
-            _ = sent
-            is_ack = (recv.pid == FpPID.ACK)
+            Wait for ACK.
+            """
+            is_ack = (item.pid == FpPID.ACK)
             return is_ack
 
-        def wait_data_logic(frame: FpFrame):
-            """Wait for all data to be received.
+        def wait_data_logic(item: FpPacket) -> None:
+            """
+            Wait for data to be received.
             """
             nonlocal data_buff, data_ok, time_start
-            is_data = (frame.pid == FpPID.DATA)
-            is_end = (frame.pid == FpPID.END_OF_DATA)
+            is_data = (item.pid == FpPID.DATA)
+            is_end = (item.pid == FpPID.END_OF_DATA)
             if is_data or is_end:
                 time_start = time.time()
-                data_buff.extend(frame.packet)
+                data_buff.extend(item.packet)
             if is_end:
                 data_ok = True
 
         # Prepare data reception
         if data_wait:
-            self.on_frame_received += wait_data_logic
+            self.on_received += wait_data_logic
 
-        # Transmit frame
-        resp = self.transmit(
-            send=FpFrame(address=self._addr, pid=FpPID.COMMAND, packet=bytearray([command]) + packet),
-            logic=wait_ack_logic
-            )
-        if not isinstance(resp, FpFrame):
-            raise self.Exception(message='Unable to get the response packet', code=FpError.ERROR_PACKET_RECEPTION)
+        # Transmit packet and wait response
+        send = FpPacket(address=self._addr, pid=FpPID.COMMAND, packet=bytearray([command]) + packet)
+        recv = self.transmit(send=send, logic=wait_ack_logic)
 
-        # Check command response and errors
-        if resp.pid != FpPID.ACK:
-            raise self.Exception(message='The received packet is not an ACK!', code=FpError.ERROR_PACKET_FAULTY)
-
-        code = FpError(resp.packet[0])
-        pack = resp.packet[1:]
-        if code == FpError.ERROR_PACKET_TRANSMISSION:
-            raise self.Exception(message='Communication error!', code=code)
-        if code == FpError.ERROR_ADDRESS:
-            raise self.Exception(message='Sensor address is wrong!', code=code)
-        if code == FpError.ERROR_PASSWORD:
-            raise self.Exception(message='Sensor password is wrong!', code=code)
-        if code == FpError.ERROR_PASSWORD_VERIFY:
-            raise self.Exception(message='Password verification required!', code=code)
+        # Check response type, command and possible errors
+        if not isinstance(recv, FpPacket):
+            raise self.Error(message='Unable to get the response packet', code=FpError.ERROR_PACKET_RECEPTION)
+        if recv.pid != FpPID.ACK:
+            raise self.Error(message='The received packet is not an ACK!', code=FpError.ERROR_PACKET_FAULTY)
+        pack = recv.packet[1:]
+        code = FpError(recv.packet[0])
+        self._code_check(code=code)
 
         # Wait for data if required
         if data_wait:
             time_start = time.time()
             while not data_ok and (time_elapsed(start=time_start) < self.RESPONSE_TIMEOUT_S):
                 time.sleep(0.01)
-            self.on_frame_received -= wait_data_logic
+            self.on_received -= wait_data_logic
             if not data_ok:
-                raise self.Exception(f'Timeout while waiting for data.', code=FpError.ERROR_TIMEOUT)
+                raise self.Error(f'Timeout while waiting for data.', code=FpError.ERROR_TIMEOUT)
 
         # Check and return
         succ = (code == FpError.SUCCESS) or (code == FpError.HANDSHAKE_SUCCESS)
@@ -774,17 +732,17 @@ class FpSDK(SerialInterface):
             pack_size = self.packet_size.to_int()
             pack_num  = (data_size // pack_size) + int((data_size % pack_size) > 0)
 
-            end   = 0
-            frame = FpFrame(address=self._addr, pid=FpPID.DATA)
+            end  = 0
+            send = FpPacket(address=self._addr, pid=FpPID.DATA)
             for idx in range(pack_num - 1):
                 start = idx * pack_size
                 end   = start + pack_size
-                frame.packet = data[start:end]
-                self.transmit(send=frame)
+                send.packet = data[start:end]
+                self.transmit(send=send)
 
-            frame.pid    = FpPID.END_OF_DATA
-            frame.packet = data[end:]
-            self.transmit(send=frame)
+            send.pid    = FpPID.END_OF_DATA
+            send.packet = data[end:]
+            self.transmit(send=send)
 
         return FpResponseSet(succ=recv.succ, code=recv.code)
 
@@ -801,7 +759,7 @@ class FpSDK(SerialInterface):
         """
         if index is None:
             if self.count >= self.capacity:
-                raise self.Exception(message=f'No space available on database', code=FpError.ERROR_DATABASE_FULL)
+                raise self.Error(message=f'No space available on database', code=FpError.ERROR_DATABASE_FULL)
             index = self.template_index().value.find(0x00)
 
         if index < 0 or index >= self.capacity:
@@ -824,7 +782,7 @@ class FpSDK(SerialInterface):
         :return: Fingerprint set response.
         :rtype: FpResponseSet
         """
-        value = to_bytes(value=self._value_check(value=value), size=4)
+        value = to_bytes(value=self._auth_check(value=value), size=4)
         return self._command_set(command=command, packet=value)
 
     def _parameter_set(self, param: FpParameterID, value: Union[int, FpBaudrate, FpPacketSize, FpSecurity]) -> FpResponseSet:
@@ -847,23 +805,38 @@ class FpSDK(SerialInterface):
         # Perform operation
         value = _type(value)
         recv = self._command_set(command=FpCommand.PARAMETERS_SET, packet=bytearray([param, value]))
-        if param != FpParameterID.BAUDRATE:
-            return recv
-
-        # Special case for baudrate
-        if recv.succ:
-            logger_sdk.info(f'Updating serial baudrate to {str(value)}...')
-            self.frame_stream.pause()
-            self.frame_stream.serial_device.serial.baudrate = value.to_int()
-            self.frame_stream.resume()
+        if recv.succ and param == FpParameterID.BAUDRATE:
+            # Handle special case for baudrate...
+            SDK_LOG.info(f'Updating serial baudrate to {str(value)}...')
+            self.stream.pause()
+            self.stream.device.serial.baudrate = value.to_int()
+            self.stream.resume()
         return recv
 
     @staticmethod
-    def _value_check(value: int) -> int:
+    def _code_check(code: FpError) -> None:
         """
-        Checks if the given value is in the address/password value range.
+        Check if the given response is valid.
 
-        :param int value: Integer to check.
+        :param FpError code: code to check.
+
+        :raise FpSDK.Error: Raise if the code is an error.
+        """
+        if code == FpError.ERROR_PACKET_TRANSMISSION:
+            raise FpSDK.Error(message='Communication error!', code=code)
+        if code == FpError.ERROR_ADDRESS:
+            raise FpSDK.Error(message='Sensor address is wrong!', code=code)
+        if code == FpError.ERROR_PASSWORD:
+            raise FpSDK.Error(message='Sensor password is wrong!', code=code)
+        if code == FpError.ERROR_PASSWORD_VERIFY:
+            raise FpSDK.Error(message='Password verification required!', code=code)
+
+    @staticmethod
+    def _auth_check(value: int) -> int:
+        """
+        Check and returns if the given addr/pass value is in a valid range.
+
+        :param int value: Value to be checked.
 
         :return: Value if valid.
         :rtype: int
