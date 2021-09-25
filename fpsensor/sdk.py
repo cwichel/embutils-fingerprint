@@ -11,10 +11,13 @@ Fingerprint SDK implementation.
 
 # External ======================================
 import time
+from typing import Optional, Union
+
+from PIL import Image
+
 from embutils.serial import Interface
 from embutils.utils import SDK_LOG, SDK_TP, EventHook, SimpleThreadTask, time_elapsed
-from PIL import Image
-from typing import Optional, Union
+
 
 # Internal ======================================
 from .api import (
@@ -130,7 +133,7 @@ class FpSDK(Interface):
         SDK_LOG.info(f'Using: {str(baudrate)}')
 
         # Initialize serial interface
-        super(FpSDK, self).__init__(codec=FpStreamFramingCodec(), port=port, looped=looped)
+        super().__init__(codec=FpStreamFramingCodec(), port=port, looped=looped)
 
         # Detector specific
         self._df_state     = False

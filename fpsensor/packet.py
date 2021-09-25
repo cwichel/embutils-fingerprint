@@ -11,9 +11,10 @@ Fingerprint packet.
 
 # External ======================================
 from dataclasses import dataclass
+from typing import Optional
+
 from embutils.serial import Device, AbstractSerializedStreamCodec
 from embutils.utils import IntEnum, AbstractSerialized
-from typing import Optional
 
 # Internal ======================================
 from .api import ADDRESS, FpPID, to_bytes, from_bytes

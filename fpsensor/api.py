@@ -11,11 +11,11 @@ Fingerprint API definitions.
 
 # External ======================================
 from dataclasses import dataclass
-from embutils.utils import IntEnum, AbstractSerialized
 from math import log2
-from PIL import Image
 from typing import Optional, Type, Union
 
+from PIL import Image
+from embutils.utils import IntEnum, AbstractSerialized
 
 # Internal ======================================
 
