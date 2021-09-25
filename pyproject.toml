@@ -30,13 +30,13 @@ check_types     = 'scripts.poetry:run_check_types'
 [tool.poetry.dependencies]
 python = "^3.7"
 Pillow = "^8.3.0"
-embutils = "^0.3.0"
+embutils = "^0.4.0"
 
 [tool.poetry.dev-dependencies]
-pytest = "^5.2"
+pytest = "^6.0.0"
 toml = "^0.10.2"
 Sphinx = "^4.0.2"
-sphinx-rtd-theme = "^0.5.2"
+sphinx-rtd-theme = "^1.0.0"
 coverage = "^5.5"
 pylint = "^2.10.2"
 mypy = "^0.910"
