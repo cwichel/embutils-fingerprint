@@ -15,7 +15,7 @@ from typing import Optional, Union
 
 from PIL import Image
 
-from embutils.serial import Interface
+from embutils.serial import Interface, Stream, Device
 from embutils.utils import SDK_LOG, SDK_TP, EventHook, SimpleThreadTask, time_elapsed
 
 
@@ -101,8 +101,8 @@ class FpSDK(Interface):
             super(FpSDK.Error, self).__init__(f'{str(code)}: {message}')
 
     def __init__(self,
+                 port: str = None, baudrate: int = None, looped: bool = False,
                  address: int = ADDRESS, password: int = PASSWORD,
-                 port: str = None, baudrate: int = 57600, looped: bool = False
                  ) -> None:
         """
         Class initialization.
@@ -127,13 +127,17 @@ class FpSDK(Interface):
         self._pass = self._auth_check(value=password)
 
         # Adjust baudrate
-        SDK_LOG.info('Formatting baudrate...')
-        baudrate = FpBaudrate.from_int(value=baudrate)
-        self.SERIAL_SETTINGS['baudrate'] = baudrate.to_int()
-        SDK_LOG.info(f'Using: {str(baudrate)}')
+        settings = self.SERIAL_SETTINGS.copy()
+        if baudrate:
+            SDK_LOG.info('Formatting baudrate...')
+            baudrate = FpBaudrate.from_int(value=baudrate)
+            settings['baudrate'] = baudrate.to_int()
+            SDK_LOG.info(f'Using: {str(baudrate)}')
 
         # Initialize serial interface
-        super().__init__(codec=FpStreamFramingCodec(), port=port, looped=looped)
+        sd = Device(port=port, looped=looped, settings=settings)
+        ss = Stream(device=sd, codec=FpStreamFramingCodec())
+        super(FpSDK, self).__init__(stream=ss)
 
         # Detector specific
         self._df_state     = False
@@ -696,7 +700,7 @@ class FpSDK(Interface):
 
         # Prepare data reception
         if data_wait:
-            self.on_received += wait_data_logic
+            self.on_receive += wait_data_logic
 
         # Transmit packet and wait response
         send = FpPacket(address=self._addr, pid=FpPID.COMMAND, packet=bytearray([command]) + packet)
@@ -716,7 +720,7 @@ class FpSDK(Interface):
             time_start = time.time()
             while not data_ok and (time_elapsed(start=time_start) < self._timeout):
                 time.sleep(0.01)
-            self.on_received -= wait_data_logic
+            self.on_receive -= wait_data_logic
             if not data_ok:
                 raise self.Error('Timeout while waiting for data.', code=FpError.ERROR_TIMEOUT)
 
