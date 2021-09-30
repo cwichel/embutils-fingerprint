@@ -46,23 +46,24 @@ class Test(unittest.TestCase):
         # Stop flag
         is_ready = False
 
-        # Manage packet reception
-        def on_connected():
-            fs.send(item=send)
-
+        # Manage reception
         def on_received(recv: FpPacket):
             nonlocal send, is_ready
-
             assert recv is not None
             assert recv == send
-
             is_ready = True
+
+        # Manage connection
+        def on_connected():
+            fs.send(item=send)
 
         # Initialize stream
         sd = Device(looped=True)
         fs = Stream(device=sd, codec=codec)
-        fs.on_connect   += on_connected
-        fs.on_received  += lambda item: on_received(recv=item)
+
+        # Add events
+        fs.on_connect += on_connected
+        fs.on_receive += lambda item: on_received(recv=item)
 
         # Maintain alive the process
         while not is_ready:
