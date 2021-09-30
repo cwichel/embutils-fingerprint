@@ -30,7 +30,7 @@ check_types     = 'scripts.poetry:run_check_types'
 [tool.poetry.dependencies]
 python = "^3.7"
 Pillow = "^8.3.0"
-embutils = "^0.4.0"
+embutils = "^0.5.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.0.0"
