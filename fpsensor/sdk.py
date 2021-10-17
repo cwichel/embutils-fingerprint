@@ -9,30 +9,26 @@ Fingerprint SDK implementation.
 :license:   The MIT License (MIT)
 """
 
-# External ======================================
 import time
-from typing import Optional, Union
+import typing as tp
 
 from PIL import Image
 
 from embutils.serial import Interface, Stream, Device
-from embutils.utils import SDK_LOG, SDK_TP, EventHook, SimpleThreadTask, time_elapsed
+from embutils.utils import SDK_LOG, SDK_TP, EventHook, SimpleThreadTask, elapsed
 
-
-# Internal ======================================
 from .api import (
     ADDRESS, PASSWORD, NOTEPAD_COUNT, NOTEPAD_SIZE,
     FpCommand, FpError, FpPID, FpBufferID, FpParameterID, FpBaudrate, FpPacketSize, FpSecurity,
-    FpSystemParameters,
-    FpResponseSet, FpResponseGet, FpResponseMatch, FpResponseValue,
+    FpSystemParameters, FpResponseSet, FpResponseGet, FpResponseMatch, FpResponseValue,
     to_bytes, from_bytes
     )
 from .packet import FpPacket, FpStreamFramingCodec
 
-# Definitions ===================================
+# -->> Definitions <<------------------
 
 
-# Data Structures ===============================
+# -->> API <<--------------------------
 class FpSDK(Interface):
     """
     Fingerprint command interface implementation.
@@ -137,7 +133,7 @@ class FpSDK(Interface):
         # Initialize serial interface
         sd = Device(port=port, looped=looped, settings=settings)
         ss = Stream(device=sd, codec=FpStreamFramingCodec())
-        super(FpSDK, self).__init__(stream=ss)
+        super().__init__(stream=ss)
 
         # Detector specific
         self._df_state     = False
@@ -255,7 +251,7 @@ class FpSDK(Interface):
         raise self.Error(code=recv.code, message='Unable to get device baudrate.')
 
     @baudrate.setter
-    def baudrate(self, value: Union[int, FpBaudrate]) -> None:
+    def baudrate(self, value: tp.Union[int, FpBaudrate]) -> None:
         """
         Device baudrate setter.
         """
@@ -274,7 +270,7 @@ class FpSDK(Interface):
         raise self.Error(code=recv.code, message='Unable to get device security.')
 
     @security.setter
-    def security(self, value: Union[int, FpSecurity]) -> None:
+    def security(self, value: tp.Union[int, FpSecurity]) -> None:
         """
         Device security level setter.
         """
@@ -293,7 +289,7 @@ class FpSDK(Interface):
         raise self.Error(code=recv.code, message='Unable to get packet size.')
 
     @packet_size.setter
-    def packet_size(self, value: Union[int, FpPacketSize]) -> None:
+    def packet_size(self, value: tp.Union[int, FpPacketSize]) -> None:
         """
         Device packet size setter.
         """
@@ -367,7 +363,7 @@ class FpSDK(Interface):
         """
         return self._command_set(command=(FpCommand.IMAGE_CAPTURE_FREE if free else FpCommand.IMAGE_CAPTURE))
 
-    def image_convert(self, buffer: Union[int, FpBufferID]) -> FpResponseSet:
+    def image_convert(self, buffer: tp.Union[int, FpBufferID]) -> FpResponseSet:
         """
         Converts the captured image and stores the result on the defined char buffer.
 
@@ -408,7 +404,7 @@ class FpSDK(Interface):
                 pixel[(idx + 1), img_y] = (0x0F & byte) << 4
         return FpResponseValue(succ=recv.succ, code=recv.code, value=image)
 
-    def template_index(self) -> Optional[FpResponseValue]:
+    def template_index(self) -> tp.Optional[FpResponseValue]:
         """
         Returns a list with the occupied indexes on the sensor database.
 
@@ -441,7 +437,7 @@ class FpSDK(Interface):
         """
         return self._command_set(command=FpCommand.TEMPLATE_CREATE)
 
-    def template_load(self, buffer: Union[int, FpBufferID], index: int = 0) -> FpResponseValue:
+    def template_load(self, buffer: tp.Union[int, FpBufferID], index: int = 0) -> FpResponseValue:
         """
         Loads an existing template from the given database position into the specified char buffer.
 
@@ -453,7 +449,7 @@ class FpSDK(Interface):
         """
         return self._template_manage(buffer=buffer, index=index, save=False)
 
-    def template_save(self, buffer: Union[int, FpBufferID], index: int = None) -> FpResponseValue:
+    def template_save(self, buffer: tp.Union[int, FpBufferID], index: int = None) -> FpResponseValue:
         """
         Saves a template from the specified char buffer at the given database position.
 
@@ -503,7 +499,7 @@ class FpSDK(Interface):
         score = from_bytes(data=recv.pack[0:2])
         return FpResponseMatch(succ=recv.succ, code=recv.code, index=index, score=score)
 
-    def match_1_n(self, buffer: Union[int, FpBufferID], index: int = 0, count: int = None, fast: bool = False) -> FpResponseMatch:
+    def match_1_n(self, buffer: tp.Union[int, FpBufferID], index: int = 0, count: int = None, fast: bool = False) -> FpResponseMatch:
         """
         Searches the device database for the template in char buffer.
 
@@ -532,7 +528,7 @@ class FpSDK(Interface):
         score = from_bytes(data=recv.pack[2:4])
         return FpResponseMatch(succ=recv.succ, code=recv.code, index=index, score=score)
 
-    def buffer_download(self, buffer: Union[int, FpBufferID]) -> FpResponseValue:
+    def buffer_download(self, buffer: tp.Union[int, FpBufferID]) -> FpResponseValue:
         """
         Downloads the char buffer data.
 
@@ -548,7 +544,7 @@ class FpSDK(Interface):
         recv = self._command_get(command=FpCommand.TEMPLATE_DOWNLOAD, packet=pack, data_wait=True)
         return FpResponseValue(succ=recv.succ, code=recv.code, value=recv.data)
 
-    def buffer_upload(self, buffer: Union[int, FpBufferID], data: bytearray) -> FpResponseSet:
+    def buffer_upload(self, buffer: tp.Union[int, FpBufferID], data: bytearray) -> FpResponseSet:
         """
         Uploads data to the char buffer. After transmission this function verifies the contents of the buffer to ensure
         the successful transmission.
@@ -718,7 +714,7 @@ class FpSDK(Interface):
         # Wait for data if required
         if data_wait:
             time_start = time.time()
-            while not data_ok and (time_elapsed(start=time_start) < self._timeout):
+            while not data_ok and (elapsed(start=time_start) < self._timeout):
                 time.sleep(0.01)
             self.on_receive -= wait_data_logic
             if not data_ok:
@@ -765,7 +761,7 @@ class FpSDK(Interface):
 
         return FpResponseSet(succ=recv.succ, code=recv.code)
 
-    def _template_manage(self, buffer: Union[int, FpBufferID], index: int = None, save: bool = True) -> FpResponseValue:
+    def _template_manage(self, buffer: tp.Union[int, FpBufferID], index: int = None, save: bool = True) -> FpResponseValue:
         """
         Save/load a template to/from the device database.
 
@@ -804,7 +800,7 @@ class FpSDK(Interface):
         value = to_bytes(value=self._auth_check(value=value), size=4)
         return self._command_set(command=command, packet=value)
 
-    def _parameter_set(self, param: FpParameterID, value: Union[int, FpBaudrate, FpPacketSize, FpSecurity]) -> FpResponseSet:
+    def _parameter_set(self, param: FpParameterID, value: tp.Union[int, FpBaudrate, FpPacketSize, FpSecurity]) -> FpResponseSet:
         """
         Set the selected parameter with the given value.
 
@@ -818,8 +814,8 @@ class FpSDK(Interface):
         _type = param.get_type()
         try:
             value = _type.from_int(value=value)
-        except ValueError as _:
-            raise ValueError(f'{_type.__name__} value not supported: {value}')
+        except ValueError as error:
+            raise ValueError(f'{_type.__name__} value not supported: {value}') from error
 
         # Perform operation
         value = _type(value)

@@ -9,18 +9,14 @@ Fingerprint API definitions.
 :license:   The MIT License (MIT)
 """
 
-# External ======================================
-from dataclasses import dataclass
-from math import log2
-from typing import Optional, Type, Union
+import dataclasses as dc
+import math
+import typing as tp
 
 from PIL import Image
 from embutils.utils import IntEnum, AbstractSerialized
 
-# Internal ======================================
-
-
-# Definitions ===================================
+# -->> Definitions <<------------------
 ADDRESS         = 0xFFFFFFFF        # Default address
 PASSWORD        = 0x00000000        # Default password
 NOTEPAD_SIZE    = 32                # Notepad size : 32 bytes per page
@@ -219,7 +215,7 @@ class FpPacketSize(IntEnum):
         """
         if cls.has_value(value=value):
             return FpPacketSize(value)
-        val = int(log2(value >> 5))
+        val = int(math.log2(value >> 5))
         if cls.has_value(value=val):
             return FpPacketSize(val)
         raise ValueError(f"Value {value} is not a compatible packet size.")
@@ -233,7 +229,7 @@ class FpParameterID(IntEnum):
     SECURITY        = 0x05
     PACKET_SIZE     = 0x06
 
-    def get_type(self) -> Type[Union[FpBaudrate, FpSecurity, FpPacketSize]]:
+    def get_type(self) -> tp.Type[tp.Union[FpBaudrate, FpSecurity, FpPacketSize]]:
         """
         Returns the datatype for the given parameter configuration.
 
@@ -249,8 +245,8 @@ class FpParameterID(IntEnum):
         raise ValueError('Parameter type not implemented')
 
 
-# Data Structures ===============================
-@dataclass
+# -->> API <<--------------------------
+@dc.dataclass
 class FpSystemParameters(AbstractSerialized):
     """
     Fingerprint system parameters structure definition.
@@ -315,7 +311,7 @@ class FpSystemParameters(AbstractSerialized):
             )
 
     @classmethod
-    def deserialize(cls, data: bytearray) -> Optional['FpSystemParameters']:
+    def deserialize(cls, data: bytearray) -> tp.Optional['FpSystemParameters']:
         """
         Parses the parameters from a byte array.
 
@@ -361,8 +357,7 @@ class FpSystemParameters(AbstractSerialized):
             )
 
 
-# Response tuples ===============================
-@dataclass
+@dc.dataclass
 class FpResponseSet:
     """
     Set command response.
@@ -374,7 +369,7 @@ class FpResponseSet:
     code:   FpError
 
 
-@dataclass
+@dc.dataclass
 class FpResponseGet(FpResponseSet):
     """
     Get command response.
@@ -386,7 +381,7 @@ class FpResponseGet(FpResponseSet):
     data:   bytearray
 
 
-@dataclass
+@dc.dataclass
 class FpResponseMatch(FpResponseSet):
     """
     Fingerprint match response.
@@ -398,17 +393,16 @@ class FpResponseMatch(FpResponseSet):
     score:  int
 
 
-@dataclass
+@dc.dataclass
 class FpResponseValue(FpResponseSet):
     """
     Command value response.
 
     :attr Union[None, int, bytearray, Image.Image, FpSystemParameters] value: Response value (depends on command).
     """
-    value:  Union[None, int, bytearray, Image.Image, FpSystemParameters]
+    value:  tp.Union[None, int, bytearray, Image.Image, FpSystemParameters]
 
 
-# Utilities =====================================
 def to_bytes(value: int, size: int) -> bytearray:
     """
     Converts an integer value into a bytearray.
