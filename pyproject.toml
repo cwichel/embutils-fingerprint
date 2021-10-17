@@ -1,5 +1,5 @@
 [tool.poetry]
-version = "0.2.2"
+version = "0.2.3"
 name = "fpsensor"
 license = "MIT"
 readme = "README.md"
