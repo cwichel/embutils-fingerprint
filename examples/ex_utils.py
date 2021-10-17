@@ -9,21 +9,19 @@ Example utilities. Not meant to be executed.
 :license:   The MIT License (MIT)
 """
 
-# External ======================================
 import argparse as ap
 import time
 
 from typing import Tuple
 
-# Internal ======================================
 from fpsensor.sdk import FpSDK
 from fpsensor.api import ADDRESS, PASSWORD
 
 
-# Tunables ======================================
+# -->> Definitions <<------------------
 
 
-# Definitions ===================================
+# -->> API <<--------------------------
 def parse_args() -> Tuple[str, int, int]:
     """
     Parses the port, address and password for the examples
