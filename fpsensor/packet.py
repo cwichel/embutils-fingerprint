@@ -10,8 +10,8 @@ Fingerprint packet.
 """
 
 # External ======================================
-from dataclasses import dataclass
-from typing import Optional
+import dataclasses as dc
+import typing as tp
 
 from embutils.serial import Device, AbstractSerializedStreamCodec
 from embutils.utils import IntEnum, AbstractSerialized
@@ -24,7 +24,7 @@ from .api import ADDRESS, FpPID, to_bytes, from_bytes
 
 
 # Data Structures ===============================
-@dataclass
+@dc.dataclass
 class FpPacket(AbstractSerialized):
     """
     Fingerprint packet structure definition.
@@ -98,7 +98,7 @@ class FpPacket(AbstractSerialized):
             )
 
     @classmethod
-    def deserialize(cls, data: bytearray) -> Optional['FpPacket']:
+    def deserialize(cls, data: bytearray) -> tp.Optional['FpPacket']:
         """
         Deserialize the packet from the input bytes.
         """
@@ -156,7 +156,7 @@ class FpStreamFramingCodec(AbstractSerializedStreamCodec):
         """
         return data.serialize()
 
-    def decode(self, data: bytearray) -> Optional[AbstractSerialized]:
+    def decode(self, data: bytearray) -> tp.Optional[AbstractSerialized]:
         """
         Decodes (deserializes) the input bytes into a packet.
         """
@@ -165,7 +165,7 @@ class FpStreamFramingCodec(AbstractSerializedStreamCodec):
         except Exception as _:
             return None
 
-    def decode_stream(self, device: Device) -> Optional[AbstractSerialized]:
+    def decode_stream(self, device: Device) -> tp.Optional[AbstractSerialized]:
         """
         Defines how to read the serial device to retrieve a fingerprint packet.
         """
