@@ -9,7 +9,6 @@ Fingerprint API definitions.
 :license:   The MIT License (MIT)
 """
 
-# External ======================================
 import dataclasses as dc
 import math
 import typing as tp
@@ -17,10 +16,7 @@ import typing as tp
 from PIL import Image
 from embutils.utils import IntEnum, AbstractSerialized
 
-# Internal ======================================
-
-
-# Definitions ===================================
+# -->> Definitions <<------------------
 ADDRESS         = 0xFFFFFFFF        # Default address
 PASSWORD        = 0x00000000        # Default password
 NOTEPAD_SIZE    = 32                # Notepad size : 32 bytes per page
@@ -249,7 +245,7 @@ class FpParameterID(IntEnum):
         raise ValueError('Parameter type not implemented')
 
 
-# Data Structures ===============================
+# -->> API <<--------------------------
 @dc.dataclass
 class FpSystemParameters(AbstractSerialized):
     """
@@ -361,7 +357,6 @@ class FpSystemParameters(AbstractSerialized):
             )
 
 
-# Response tuples ===============================
 @dc.dataclass
 class FpResponseSet:
     """
@@ -408,7 +403,6 @@ class FpResponseValue(FpResponseSet):
     value:  tp.Union[None, int, bytearray, Image.Image, FpSystemParameters]
 
 
-# Utilities =====================================
 def to_bytes(value: int, size: int) -> bytearray:
     """
     Converts an integer value into a bytearray.

@@ -9,7 +9,6 @@ Fingerprint SDK implementation.
 :license:   The MIT License (MIT)
 """
 
-# External ======================================
 import time
 import typing as tp
 
@@ -18,21 +17,18 @@ from PIL import Image
 from embutils.serial import Interface, Stream, Device
 from embutils.utils import SDK_LOG, SDK_TP, EventHook, SimpleThreadTask, elapsed
 
-
-# Internal ======================================
 from .api import (
     ADDRESS, PASSWORD, NOTEPAD_COUNT, NOTEPAD_SIZE,
     FpCommand, FpError, FpPID, FpBufferID, FpParameterID, FpBaudrate, FpPacketSize, FpSecurity,
-    FpSystemParameters,
-    FpResponseSet, FpResponseGet, FpResponseMatch, FpResponseValue,
+    FpSystemParameters, FpResponseSet, FpResponseGet, FpResponseMatch, FpResponseValue,
     to_bytes, from_bytes
     )
 from .packet import FpPacket, FpStreamFramingCodec
 
-# Definitions ===================================
+# -->> Definitions <<------------------
 
 
-# Data Structures ===============================
+# -->> API <<--------------------------
 class FpSDK(Interface):
     """
     Fingerprint command interface implementation.

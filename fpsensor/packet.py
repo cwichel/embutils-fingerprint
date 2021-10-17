@@ -9,21 +9,19 @@ Fingerprint packet.
 :license:   The MIT License (MIT)
 """
 
-# External ======================================
 import dataclasses as dc
 import typing as tp
 
 from embutils.serial import Device, AbstractSerializedStreamCodec
 from embutils.utils import IntEnum, AbstractSerialized
 
-# Internal ======================================
 from .api import ADDRESS, FpPID, to_bytes, from_bytes
 
 
-# Definitions ===================================
+# -->> Definitions <<------------------
 
 
-# Data Structures ===============================
+# -->> API <<--------------------------
 @dc.dataclass
 class FpPacket(AbstractSerialized):
     """
