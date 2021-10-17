@@ -9,20 +9,18 @@ Example: 32-bit random number generation.
 :license:   The MIT License (MIT)
 """
 
-# External ======================================
+from embutils.utils import SDK_LOG
 
-
-# Internal ======================================
 from fpsensor.sdk import FpSDK
 from fpsensor.api import FpBaudrate
 
 from examples.ex_utils import parse_args
 
 
-# Tunables ======================================
+# -->> Definitions <<------------------
 
 
-# Definitions ===================================
+# -->> Example <<----------------------
 def example(sdk: FpSDK):
     try:
         # Tries to initialize the sensor
@@ -48,8 +46,11 @@ def example(sdk: FpSDK):
         sdk.stop()
 
 
-# Execution =====================================
+# -->> Execution <<--------------------
 if __name__ == '__main__':
+    # Comment to disable logger
+    SDK_LOG.enable()
+
     # Initialize the sensor and perform the example when gets connected
     port, addr, passwd = parse_args()
     fp = FpSDK(port=port, baudrate=FpBaudrate.BAUDRATE_57600, address=addr, password=passwd)
