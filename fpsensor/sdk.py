@@ -133,7 +133,7 @@ class FpSDK(Interface):
         # Initialize serial interface
         sd = Device(port=port, looped=looped, settings=settings)
         ss = Stream(device=sd, codec=FpStreamFramingCodec())
-        super(FpSDK, self).__init__(stream=ss)
+        super().__init__(stream=ss)
 
         # Detector specific
         self._df_state     = False
@@ -814,8 +814,8 @@ class FpSDK(Interface):
         _type = param.get_type()
         try:
             value = _type.from_int(value=value)
-        except ValueError as _:
-            raise ValueError(f'{_type.__name__} value not supported: {value}')
+        except ValueError as error:
+            raise ValueError(f'{_type.__name__} value not supported: {value}') from error
 
         # Perform operation
         value = _type(value)
