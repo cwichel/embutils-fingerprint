@@ -1,5 +1,5 @@
 [tool.poetry]
-version = "0.2.3"
+version = "0.2.4"
 name = "fpsensor"
 license = "MIT"
 readme = "README.md"
@@ -30,14 +30,14 @@ check_types     = 'scripts.poetry:run_check_types'
 [tool.poetry.dependencies]
 python = "^3.7"
 Pillow = "^8.3.0"
-embutils = "^0.5.0"
+embutils = ">0.5.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.0.0"
 toml = "^0.10.2"
 Sphinx = "^4.0.2"
 sphinx-rtd-theme = "^1.0.0"
-coverage = "^5.5"
+coverage = "^6.0.0"
 pylint = "^2.10.2"
 mypy = "^0.910"
 
