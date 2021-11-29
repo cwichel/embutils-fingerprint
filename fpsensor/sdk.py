@@ -15,7 +15,7 @@ import typing as tp
 from PIL import Image
 
 from embutils.serial import Interface, Stream, Device
-from embutils.utils import SDK_LOG, SDK_TP, EventHook, SimpleThreadTask, elapsed
+from embutils.utils import SDK_LOG, SDK_TP, EventHook, SimpleThreadTask, Timer
 
 from .api import (
     ADDRESS, PASSWORD, NOTEPAD_COUNT, NOTEPAD_SIZE,
@@ -671,6 +671,7 @@ class FpSDK(Interface):
         :return: Fingerprint get response.
         :rtype: FpResponseGet
         """
+        tim = Timer()
         data_ok = False
         data_buff = bytearray()
 
@@ -685,11 +686,11 @@ class FpSDK(Interface):
             """
             Wait for data to be received.
             """
-            nonlocal data_buff, data_ok, time_start
+            nonlocal data_buff, data_ok, tim
             is_data = (item.pid == FpPID.DATA)
             is_end = (item.pid == FpPID.END_OF_DATA)
             if is_data or is_end:
-                time_start = time.time()
+                tim.start()
                 data_buff.extend(item.packet)
             if is_end:
                 data_ok = True
@@ -713,8 +714,8 @@ class FpSDK(Interface):
 
         # Wait for data if required
         if data_wait:
-            time_start = time.time()
-            while not data_ok and (elapsed(start=time_start) < self._timeout):
+            tim.start()
+            while not data_ok and (tim.elapsed() < self._timeout):
                 time.sleep(0.01)
             self.on_receive -= wait_data_logic
             if not data_ok:
