@@ -1,5 +1,5 @@
 [tool.poetry]
-version = "0.2.4"
+version = "0.2.5"
 name = "fpsensor"
 license = "MIT"
 readme = "README.md"
@@ -19,10 +19,10 @@ classifiers = [
     ]
 
 [tool.poetry.scripts]
-version         = 'scripts.poetry:run_version'
-test            = 'scripts.poetry:run_test'
 docs            = 'scripts.poetry:run_docs'
 html            = 'scripts.poetry:run_html'
+test            = 'scripts.poetry:run_test'
+version         = 'scripts.poetry:run_version'
 check_coverage  = 'scripts.poetry:run_check_coverage'
 check_linter    = 'scripts.poetry:run_check_linter'
 check_types     = 'scripts.poetry:run_check_types'
@@ -30,7 +30,8 @@ check_types     = 'scripts.poetry:run_check_types'
 [tool.poetry.dependencies]
 python = "^3.7"
 Pillow = "^8.3.0"
-embutils = ">0.5.0"
+embutils = "^0.7.0"
+attrs = "^21.2.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.0.0"
