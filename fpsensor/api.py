@@ -9,12 +9,12 @@ Fingerprint API definitions.
 :license:   The MIT License (MIT)
 """
 
-import dataclasses as dc
 import math
 import typing as tp
 
-from PIL import Image
-from embutils.utils import IntEnum, AbstractSerialized
+import attr
+import PIL.Image as PilI
+import embutils.utils as embu
 
 # -->> Definitions <<------------------
 ADDRESS         = 0xFFFFFFFF        # Default address
@@ -23,7 +23,7 @@ NOTEPAD_SIZE    = 32                # Notepad size : 32 bytes per page
 NOTEPAD_COUNT   = 16                # Notepad count: 16 pages
 
 
-class FpPID(IntEnum):
+class FpPID(embu.IntEnum):
     """
     Fingerprint packet IDs.
     """
@@ -33,7 +33,7 @@ class FpPID(IntEnum):
     END_OF_DATA = 0x08          # End of data
 
 
-class FpCommand(IntEnum):
+class FpCommand(embu.IntEnum):
     """
     Fingerprint command IDs.
     """
@@ -74,7 +74,7 @@ class FpCommand(IntEnum):
     BACKLIGHT_OFF           = 0x51
 
 
-class FpError(IntEnum):
+class FpError(embu.IntEnum):
     """
     Fingerprint error IDs.
     """
@@ -122,7 +122,7 @@ class FpError(IntEnum):
     ERROR_TIMEOUT                       = 0xFF
 
 
-class FpBufferID(IntEnum):
+class FpBufferID(embu.IntEnum):
     """
     Fingerprint buffer IDs.
     """
@@ -130,7 +130,18 @@ class FpBufferID(IntEnum):
     BUFFER_2    = 0x02
 
 
-class FpBaudrate(IntEnum):
+class FpSecurity(embu.IntEnum):
+    """
+    Fingerprint security levels.
+    """
+    SECURITY_LVL1   = 0x01
+    SECURITY_LVL2   = 0x02
+    SECURITY_LVL3   = 0x03
+    SECURITY_LVL4   = 0x04
+    SECURITY_LVL5   = 0x05
+
+
+class FpBaudrate(embu.IntEnum):
     """
     Fingerprint compatible baudrate.
     """
@@ -174,18 +185,7 @@ class FpBaudrate(IntEnum):
         raise ValueError(f"Value {value} is not supported by the sensor.")
 
 
-class FpSecurity(IntEnum):
-    """
-    Fingerprint security levels.
-    """
-    SECURITY_LVL1   = 0x01
-    SECURITY_LVL2   = 0x02
-    SECURITY_LVL3   = 0x03
-    SECURITY_LVL4   = 0x04
-    SECURITY_LVL5   = 0x05
-
-
-class FpPacketSize(IntEnum):
+class FpPacketSize(embu.IntEnum):
     """
     Fingerprint packet sizes.
     """
@@ -221,7 +221,7 @@ class FpPacketSize(IntEnum):
         raise ValueError(f"Value {value} is not a compatible packet size.")
 
 
-class FpParameterID(IntEnum):
+class FpParameterID(embu.IntEnum):
     """
     Fingerprint editable parameters.
     """
@@ -246,8 +246,8 @@ class FpParameterID(IntEnum):
 
 
 # -->> API <<--------------------------
-@dc.dataclass
-class FpSystemParameters(AbstractSerialized):
+@attr.s
+class FpSystemParameters(embu.AbstractSerialized):
     """
     Fingerprint system parameters structure definition.
 
@@ -271,30 +271,19 @@ class FpSystemParameters(AbstractSerialized):
     SIZE_MIN = 16
 
     #: Device Status
-    status:     int
+    status:     int = attr.ib(repr=lambda v: f"0x{v:04X}")
     #: Device ID
-    id:         int
+    id:         int = attr.ib(repr=lambda v: f"0x{v:04X}")
     #: Device address
-    address:    int
+    address:    int = attr.ib(repr=lambda v: f"0x{v:08X}")
     #: Database capacity
-    capacity:   int
+    capacity:   int = attr.ib()
     #: Packet size
-    packet:     FpPacketSize
+    packet:     FpPacketSize = attr.ib(repr=lambda v: str(v))
     #: Security level
-    security:   FpSecurity
+    security:   FpSecurity   = attr.ib(repr=lambda v: str(v))
     #: System baudrate
-    baudrate:   FpBaudrate
-
-    def __repr__(self):
-        """
-        Representation string.
-
-        :return: Representation string.
-        :rtype: str
-        """
-        return f'{self.__class__.__name__}(status=0x{self.status:04X}, id=0x{self.id:04X}, ' \
-               f'address=0x{self.address:08X}, capacity={self.capacity}, packet={str(self.packet)}, ' \
-               f'security={str(self.security)}, baudrate={str(self.baudrate)})'
+    baudrate:   FpBaudrate   = attr.ib(repr=lambda v: str(v))
 
     def serialize(self) -> bytearray:
         """
@@ -357,7 +346,7 @@ class FpSystemParameters(AbstractSerialized):
             )
 
 
-@dc.dataclass
+@attr.s
 class FpResponseSet:
     """
     Set command response.
@@ -365,11 +354,11 @@ class FpResponseSet:
     :attr bool succ:    True if the command succeed, false otherwise.
     :attr FpError code: Command response code.
     """
-    succ:   bool
-    code:   FpError
+    succ:   bool    = attr.ib()
+    code:   FpError = attr.ib()
 
 
-@dc.dataclass
+@attr.s
 class FpResponseGet(FpResponseSet):
     """
     Get command response.
@@ -377,11 +366,11 @@ class FpResponseGet(FpResponseSet):
     :attr bytearray pack: Response packet data without the response code byte.
     :attr bytearray data: Response data.
     """
-    pack:   bytearray
-    data:   bytearray
+    pack:   bytearray = attr.ib()
+    data:   bytearray = attr.ib()
 
 
-@dc.dataclass
+@attr.s
 class FpResponseMatch(FpResponseSet):
     """
     Fingerprint match response.
@@ -389,18 +378,18 @@ class FpResponseMatch(FpResponseSet):
     :attr int index: Index of the matching fingerprint on database. -1 if no available.
     :attr int score: Matching fingerprint accuracy score.
     """
-    index:  int
-    score:  int
+    index:  int = attr.ib()
+    score:  int = attr.ib()
 
 
-@dc.dataclass
+@attr.s
 class FpResponseValue(FpResponseSet):
     """
     Command value response.
 
     :attr Union[None, int, bytearray, Image.Image, FpSystemParameters] value: Response value (depends on command).
     """
-    value:  tp.Union[None, int, bytearray, Image.Image, FpSystemParameters]
+    value:  tp.Union[None, int, bytearray, PilI.Image, FpSystemParameters] = attr.ib()
 
 
 def to_bytes(value: int, size: int) -> bytearray:

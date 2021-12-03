@@ -12,10 +12,9 @@ Fingerprint SDK implementation.
 import time
 import typing as tp
 
-from PIL import Image
-
-from embutils.serial import Interface, Stream, Device
-from embutils.utils import SDK_LOG, SDK_TP, EventHook, SimpleThreadTask, elapsed
+import PIL.Image as PilI
+import embutils.serial as embs
+import embutils.utils as embu
 
 from .api import (
     ADDRESS, PASSWORD, NOTEPAD_COUNT, NOTEPAD_SIZE,
@@ -29,7 +28,7 @@ from .packet import FpPacket, FpStreamFramingCodec
 
 
 # -->> API <<--------------------------
-class FpSDK(Interface):
+class FpSDK(embs.Interface):
     """
     Fingerprint command interface implementation.
 
@@ -112,8 +111,8 @@ class FpSDK(Interface):
         :raise ValueError: Raise if address or password values are not in a valid range.
         """
         # Public events
-        self.on_finger_pressed  = EventHook()
-        self.on_finger_released = EventHook()
+        self.on_finger_pressed  = embu.EventHook()
+        self.on_finger_released = embu.EventHook()
 
         # Initialize static data
         self._caps = None
@@ -125,14 +124,14 @@ class FpSDK(Interface):
         # Adjust baudrate
         settings = self.SERIAL_SETTINGS.copy()
         if baudrate:
-            SDK_LOG.info('Formatting baudrate...')
+            embu.SDK_LOG.info('Formatting baudrate...')
             baudrate = FpBaudrate.from_int(value=baudrate)
             settings['baudrate'] = baudrate.to_int()
-            SDK_LOG.info(f'Using: {str(baudrate)}')
+            embu.SDK_LOG.info(f'Using: {str(baudrate)}')
 
         # Initialize serial interface
-        sd = Device(port=port, looped=looped, settings=settings)
-        ss = Stream(device=sd, codec=FpStreamFramingCodec())
+        sd = embs.Device(port=port, looped=looped, settings=settings)
+        ss = embs.Stream(device=sd, codec=FpStreamFramingCodec())
         super().__init__(stream=ss)
 
         # Detector specific
@@ -140,7 +139,7 @@ class FpSDK(Interface):
         self._df_is_active = True
         self._df_period    = self.PERIOD_DETECTION
         self._df_finished  = False
-        SDK_TP.enqueue(task=SimpleThreadTask(
+        embu.SDK_TP.enqueue(task=embu.SimpleThreadTask(
             name=f'{self.__class__.__name__}.detector_process',
             task=self._detector_process
             ))
@@ -387,7 +386,7 @@ class FpSDK(Interface):
         recv = self._command_get(command=FpCommand.IMAGE_DOWNLOAD, data_wait=True)
 
         # Generate image
-        image = Image.new(mode='L', size=(256, 288), color='white')
+        image = PilI.new(mode='L', size=(256, 288), color='white')
         if not recv.succ:
             return FpResponseValue(succ=recv.succ, code=recv.code, value=image)
 
@@ -601,7 +600,7 @@ class FpSDK(Interface):
         if page < 0 or page >= NOTEPAD_COUNT:
             raise ValueError(f'Notepad page out of range: {0} <= {page} < {NOTEPAD_COUNT}')
         if len(data) > NOTEPAD_SIZE:
-            SDK_LOG.info(f'Cropping data to match the notepad page size: {len(data)} cropped to {NOTEPAD_SIZE}')
+            embu.SDK_LOG.info(f'Cropping data to match the notepad page size: {len(data)} cropped to {NOTEPAD_SIZE}')
             data = data[:NOTEPAD_SIZE]
 
         pack = bytearray([page]) + data
@@ -641,14 +640,14 @@ class FpSDK(Interface):
                 if state != self._df_state:
                     self._df_state = state
                     if self._df_state:
-                        SDK_LOG.info('Finger pressed sensor!')
-                        SDK_TP.enqueue(task=SimpleThreadTask(
+                        embu.SDK_LOG.info('Finger pressed sensor!')
+                        embu.SDK_TP.enqueue(task=embu.SimpleThreadTask(
                             name=f'{self.__class__.__name__}.on_finger_pressed',
                             task=self.on_finger_pressed.emit
                             ))
                     else:
-                        SDK_LOG.info('Finger released sensor!')
-                        SDK_TP.enqueue(task=SimpleThreadTask(
+                        embu.SDK_LOG.info('Finger released sensor!')
+                        embu.SDK_TP.enqueue(task=embu.SimpleThreadTask(
                             name=f'{self.__class__.__name__}.on_finger_released',
                             task=self.on_finger_released.emit
                             ))
@@ -671,6 +670,7 @@ class FpSDK(Interface):
         :return: Fingerprint get response.
         :rtype: FpResponseGet
         """
+        tim = embu.Timer()
         data_ok = False
         data_buff = bytearray()
 
@@ -685,11 +685,11 @@ class FpSDK(Interface):
             """
             Wait for data to be received.
             """
-            nonlocal data_buff, data_ok, time_start
+            nonlocal data_buff, data_ok, tim
             is_data = (item.pid == FpPID.DATA)
             is_end = (item.pid == FpPID.END_OF_DATA)
             if is_data or is_end:
-                time_start = time.time()
+                tim.start()
                 data_buff.extend(item.packet)
             if is_end:
                 data_ok = True
@@ -713,8 +713,8 @@ class FpSDK(Interface):
 
         # Wait for data if required
         if data_wait:
-            time_start = time.time()
-            while not data_ok and (elapsed(start=time_start) < self._timeout):
+            tim.start()
+            while not data_ok and (tim.elapsed() < self._timeout):
                 time.sleep(0.01)
             self.on_receive -= wait_data_logic
             if not data_ok:
@@ -822,7 +822,7 @@ class FpSDK(Interface):
         recv = self._command_set(command=FpCommand.PARAMETERS_SET, packet=bytearray([param, value]))
         if recv.succ and param == FpParameterID.BAUDRATE:
             # Handle special case for baudrate...
-            SDK_LOG.info(f'Updating serial baudrate to {str(value)}...')
+            embu.SDK_LOG.info(f'Updating serial baudrate to {str(value)}...')
             self.stream.pause()
             self.stream.device.serial.baudrate = value.to_int()
             self.stream.resume()
