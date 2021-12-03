@@ -9,11 +9,11 @@ Fingerprint packet.
 :license:   The MIT License (MIT)
 """
 
-import dataclasses as dc
 import typing as tp
 
-from embutils.serial import Device, AbstractSerializedStreamCodec
-from embutils.utils import IntEnum, AbstractSerialized
+import attr
+import embutils.serial as embs
+import embutils.utils as embu
 
 from .api import ADDRESS, FpPID, to_bytes, from_bytes
 
@@ -22,8 +22,8 @@ from .api import ADDRESS, FpPID, to_bytes, from_bytes
 
 
 # -->> API <<--------------------------
-@dc.dataclass
-class FpPacket(AbstractSerialized):
+@attr.s
+class FpPacket(embu.AbstractSerialized):
     """
     Fingerprint packet structure definition.
 
@@ -51,11 +51,11 @@ class FpPacket(AbstractSerialized):
     SIZE_MAX = 256
 
     #: Device address
-    address:    int = ADDRESS
+    address:    int = attr.ib(default=ADDRESS, repr=lambda v: f"0x{v:08X}")
     #: Frame type (PID)
-    pid:        FpPID = FpPID.COMMAND
+    pid:        FpPID = attr.ib(default=FpPID.COMMAND, repr=lambda v: str(v))
     #: Packet data
-    packet:     bytearray = bytearray()
+    packet:     bytearray = attr.ib(default=bytearray(), repr=lambda v: f"0x{v.hex().upper()}")
 
     @property
     def checksum(self) -> int:
@@ -128,11 +128,11 @@ class FpPacket(AbstractSerialized):
         return tmp
 
 
-class FpStreamFramingCodec(AbstractSerializedStreamCodec):
+class FpStreamFramingCodec(embs.AbstractSerializedStreamCodec):
     """
     Fingerprint framing implementation to use on streams.
     """
-    class State(IntEnum):
+    class State(embu.IntEnum):
         """
         Codec reading states.
         """
@@ -148,22 +148,19 @@ class FpStreamFramingCodec(AbstractSerializedStreamCodec):
         self._recv  = bytearray()
         self._count = 0
 
-    def encode(self, data: AbstractSerialized) -> bytearray:
+    def encode(self, data: embu.AbstractSerialized) -> bytearray:
         """
         Encodes (serializes) the input packet.
         """
         return data.serialize()
 
-    def decode(self, data: bytearray) -> tp.Optional[AbstractSerialized]:
+    def decode(self, data: bytearray) -> tp.Optional[embu.AbstractSerialized]:
         """
         Decodes (deserializes) the input bytes into a packet.
         """
-        try:
-            return FpPacket.deserialize(data=data)
-        except Exception as _:
-            return None
+        return FpPacket.deserialize(data=data)
 
-    def decode_stream(self, device: Device) -> tp.Optional[AbstractSerialized]:
+    def decode_stream(self, device: embs.Device) -> tp.Optional[embu.AbstractSerialized]:
         """
         Defines how to read the serial device to retrieve a fingerprint packet.
         """
